@@ -573,7 +573,6 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 				return extHostLanguageFeatures.registerCodeActionProvider(extension, checkSelector(selector), provider, metadata);
 			},
 			registerDocumentPasteEditProvider(selector: vscode.DocumentSelector, provider: vscode.DocumentPasteEditProvider, metadata: vscode.DocumentPasteProviderMetadata): vscode.Disposable {
-				checkProposedApiEnabled(extension, 'documentPaste');
 				return extHostLanguageFeatures.registerDocumentPasteEditProvider(extension, checkSelector(selector), provider, metadata);
 			},
 			registerCodeLensProvider(selector: vscode.DocumentSelector, provider: vscode.CodeLensProvider): vscode.Disposable {
@@ -706,7 +705,7 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 				return extHostLanguages.createLanguageStatusItem(extension, id, selector);
 			},
 			registerDocumentDropEditProvider(selector: vscode.DocumentSelector, provider: vscode.DocumentDropEditProvider, metadata?: vscode.DocumentDropEditProviderMetadata): vscode.Disposable {
-				return extHostLanguageFeatures.registerDocumentOnDropEditProvider(extension, selector, provider, isProposedApiEnabled(extension, 'documentPaste') ? metadata : undefined);
+				return extHostLanguageFeatures.registerDocumentOnDropEditProvider(extension, selector, provider, metadata);
 			},
 			getInlayHintsProvider(selector: vscode.DocumentSelector): vscode.InlayHintsProvider | null {
 				return extHostLanguageFeatures.getInlayHintsProvider(selector);
@@ -1481,9 +1480,10 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 				checkProposedApiEnabled(extension, 'chatVariableResolver');
 				return extHostChatVariables.registerVariableResolver(extension, id, name, userDescription, modelDescription, isSlow, resolver, fullName, icon?.id);
 			},
-			registerMappedEditsProvider(selector: vscode.DocumentSelector, provider: vscode.MappedEditsProvider) {
+			registerMappedEditsProvider(_selector: vscode.DocumentSelector, _provider: vscode.MappedEditsProvider) {
 				checkProposedApiEnabled(extension, 'mappedEditsProvider');
-				return extHostLanguageFeatures.registerMappedEditsProvider(extension, selector, provider);
+				// no longer supported
+				return { dispose() { } };
 			},
 			registerMappedEditsProvider2(provider: vscode.MappedEditsProvider2) {
 				checkProposedApiEnabled(extension, 'mappedEditsProvider');
@@ -1563,10 +1563,10 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 				return extHostLanguageModelTools.registerTool(extension, name, tool);
 			},
 			invokeTool<T>(name: string, parameters: vscode.LanguageModelToolInvocationOptions<T>, token?: vscode.CancellationToken) {
-				return extHostLanguageModelTools.invokeTool(name, parameters, token);
+				return extHostLanguageModelTools.invokeTool(extension, name, parameters, token);
 			},
 			get tools() {
-				return extHostLanguageModelTools.tools;
+				return extHostLanguageModelTools.getTools(extension);
 			},
 			fileIsIgnored(uri: vscode.Uri, token: vscode.CancellationToken) {
 				return extHostLanguageModels.fileIsIgnored(extension, uri, token);
@@ -1630,6 +1630,10 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 
 		// namespace: devtools
 		const devtools: typeof vscode.devtools = {
+			getScreenshot() {
+				checkProposedApiEnabled(extension, 'devtools');
+				return extHostDevtools.getScreenshot();
+			},
 			setStatus(status) {
 				checkProposedApiEnabled(extension, 'devtools');
 				return extHostDevtools.setStatus(status);
@@ -1650,6 +1654,10 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 				checkProposedApiEnabled(extension, 'devtools');
 				return _asExtensionEvent(extHostDevtools.onDidTriggerInspectingHostStop)(listener, thisArgs, disposables);
 			},
+			onDidTriggerInspectingClearOverlays: function (listener, thisArgs?, disposables?) {
+				checkProposedApiEnabled(extension, 'devtools');
+				return _asExtensionEvent(extHostDevtools.onDidInspectingClearOverlays)(listener, thisArgs, disposables);
+			}
 		};
 
 		// namespace: devtools
@@ -1816,6 +1824,7 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 			TerminalCompletionItem: extHostTypes.TerminalCompletionItem,
 			TerminalCompletionItemKind: extHostTypes.TerminalCompletionItemKind,
 			TerminalCompletionList: extHostTypes.TerminalCompletionList,
+			TerminalShellType: extHostTypes.TerminalShellType,
 			TextDocumentSaveReason: extHostTypes.TextDocumentSaveReason,
 			TextEdit: extHostTypes.TextEdit,
 			SnippetTextEdit: extHostTypes.SnippetTextEdit,

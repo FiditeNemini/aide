@@ -8,7 +8,7 @@ import { ShowOptions, SimpleBrowserView, UrlChangePayload } from './simpleBrowse
 
 type WebViewState = {
 	url: string;
-	originalUrl: string;
+	sessions: Record<number, number>;
 };
 
 export class SimpleBrowserManager extends vscode.Disposable {
@@ -17,6 +17,7 @@ export class SimpleBrowserManager extends vscode.Disposable {
 
 	constructor(
 		private readonly extensionUri: vscode.Uri,
+		private readonly onDidClearOverlays: () => void,
 	) {
 		super(() => {
 			if (this._activeView) {
@@ -39,7 +40,7 @@ export class SimpleBrowserManager extends vscode.Disposable {
 		if (this._activeView) {
 			this._activeView.show(url, options);
 		} else {
-			const view = SimpleBrowserView.create(this.extensionUri, url, options);
+			const view = SimpleBrowserView.create(this.extensionUri, url, this.onDidClearOverlays, options);
 			this.registerWebviewListeners(view);
 			this._activeView = view;
 		}
@@ -49,7 +50,7 @@ export class SimpleBrowserManager extends vscode.Disposable {
 	}
 
 	public restore(panel: vscode.WebviewPanel, state: WebViewState): void {
-		const view = SimpleBrowserView.restore(this.extensionUri, state.url, panel, state.originalUrl);
+		const view = SimpleBrowserView.restore(this.extensionUri, state.url, panel, this.onDidClearOverlays, state.sessions);
 		this.registerWebviewListeners(view);
 		this._activeView ??= view;
 	}

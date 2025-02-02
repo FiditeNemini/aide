@@ -189,7 +189,7 @@ export class InlineCompletionItemProvider
 		// console.log('Identifier nodes interested', response);
 		let responses: TypeDefinitionProviderWithNode[] | unknown = [];
 		try {
-			responses = await Promise.race([typeDefinitionForIdentifierNodes(response, document.uri, this.sidecarClient), new Promise((_, reject) => {
+			responses = await Promise.race([typeDefinitionForIdentifierNodes(response, document.uri), new Promise((_, reject) => {
 				const { signal } = abortController;
 				signal.addEventListener('abort', () => {
 					reject(new Error('Aborted'));

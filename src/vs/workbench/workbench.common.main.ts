@@ -265,9 +265,6 @@ import './contrib/mergeEditor/browser/mergeEditor.contribution.js';
 // Multi Diff Editor
 import './contrib/multiDiffEditor/browser/multiDiffEditor.contribution.js';
 
-// Mapped Edits
-import './contrib/mappedEdits/common/mappedEdits.contribution.js';
-
 // Commands
 import './contrib/commands/common/commands.contribution.js';
 
@@ -291,7 +288,6 @@ import './contrib/extensions/browser/extensions.contribution.js';
 import './contrib/extensions/browser/extensionsViewlet.js';
 
 // Output View
-import './contrib/output/common/outputChannelModelService.js';
 import './contrib/output/browser/output.contribution.js';
 import './contrib/output/browser/outputView.js';
 
@@ -342,7 +338,7 @@ import './contrib/themes/browser/themes.contribution.js';
 import './contrib/update/browser/update.contribution.js';
 
 // Surveys
-import './contrib/surveys/browser/nps.contribution.js';
+//import './contrib/surveys/browser/nps.contribution.js';
 import './contrib/surveys/browser/languageSurveys.contribution.js';
 
 // Welcome

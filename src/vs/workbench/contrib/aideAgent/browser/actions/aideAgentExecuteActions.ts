@@ -142,7 +142,7 @@ class ToggleInspectingHost extends Action2 {
 
 	run(accessor: ServicesAccessor, ...args: any[]) {
 		const devtoolsService = accessor.get(IDevtoolsService);
-		devtoolsService.startInspectingHost();
+		devtoolsService.toggleInspectingHost();
 	}
 }
 
@@ -153,12 +153,12 @@ function registerToggleInspectingHost() {
 		when: ContextKeyExpr.and(ContextKeyExpr.equals(CONTEXT_CHAT_MODE.key, 'Agentic'), ContextKeyExpr.equals(CONTEXT_DEVTOOLS_STATUS.key, DevtoolsStatus.DevtoolsConnected)),
 		command: {
 			id: ToggleInspectingHost.ID,
-			title: localize2('interactive.startInspectingHost.label', "Start inspecting with devtools"),
+			title: localize2('interactive.startInspectingHost.label', "Provide context with React inspector"),
 			icon: Codicon.inspect,
 			toggled: {
 				condition: ContextKeyExpr.equals(CONTEXT_IS_INSPECTING_HOST.key, true),
 				icon: Codicon.close,
-				title: localize2('interactive.stopInspectingHost.label', "Stop inspecting with devtools").value,
+				title: localize2('interactive.stopInspectingHost.label', "Stop React inspector").value,
 			}
 		},
 	});

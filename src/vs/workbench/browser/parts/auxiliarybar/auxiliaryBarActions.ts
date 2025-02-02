@@ -45,10 +45,12 @@ export class ToggleAuxiliaryBarAction extends Action2 {
 				description: localize('openAndCloseAuxiliaryBar', 'Open/Show and Close/Hide Secondary Side Bar'),
 			},
 			f1: true,
+			/*
 			keybinding: {
 				weight: KeybindingWeight.WorkbenchContrib,
 				primary: KeyMod.CtrlCmd | KeyMod.Alt | KeyCode.KeyB
 			},
+			*/
 			menu: [
 				{
 					id: MenuId.LayoutControlMenuSubmenu,

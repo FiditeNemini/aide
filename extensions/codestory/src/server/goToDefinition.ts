@@ -5,7 +5,6 @@
 
 import * as vscode from 'vscode';
 import { SidecarGoToDefinitionRequest, SidecarGoToDefinitionResponse } from './types';
-import { shouldTrackFile } from '../utilities/openTabs';
 
 export async function goToDefinition(request: SidecarGoToDefinitionRequest): Promise<SidecarGoToDefinitionResponse> {
 	const locations: any[] = await vscode.commands.executeCommand(
@@ -19,12 +18,6 @@ export async function goToDefinition(request: SidecarGoToDefinitionRequest): Pro
 		// we have to always open the text document first, this ends up sending
 		// it over to the sidecar as a side-effect but that is fine
 
-		// No need to await on this
-		if (shouldTrackFile(uri)) {
-			// console.log('we are tracking this uri');
-			// console.log(uri);
-			// 	sidecarClient.documentOpen(textDocument.uri.fsPath, textDocument.getText(), textDocument.languageId);
-		}
 
 		// return the value as we would normally
 		return {

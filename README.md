@@ -1,5 +1,5 @@
 <div id="vscodium-logo" align="center">
-    <img src="./media/logo.svg" alt="VSCodium Logo" width="200"/>
+    <img src="./media/logo.svg" alt="Aide Logo" width="160"/>
     <h1>Aide</h1>
 </div>
 

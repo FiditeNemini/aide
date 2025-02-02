@@ -7,9 +7,9 @@ import * as vscode from 'vscode';
 // @ts-expect-error external
 import createDevtools from './dist/standalone.js';
 import { proxy, ProxyResult } from './proxy';
-import { DevtoolsStatus, DevtoolsType, InspectedElementPayload, InspectElementParsedFullData } from './types';
+import { DevtoolsStatus, DevtoolsType, InfoOrigin, InspectedElementPayload, InspectElementParsedFullData, InspectionResult } from './types';
 import { findTsxNodeAtLine } from '../../languages/tsxCodeSymbols.js';
-import { join } from 'node:path';
+import { join, basename } from 'node:path';
 
 export class DevtoolsSession extends vscode.Disposable {
 
@@ -22,7 +22,7 @@ export class DevtoolsSession extends vscode.Disposable {
 	}
 
 	get proxyPort() {
-		return this._proxyResult?.listenPort;
+		return this._proxyResult?.proxyPort;
 	}
 
 	get devtoolsPort() {
@@ -48,7 +48,7 @@ export class DevtoolsSession extends vscode.Disposable {
 	private _onStatusChange = new vscode.EventEmitter<DevtoolsStatus>();
 	onStatusChange = this._onStatusChange.event;
 
-	private _onInspectedElementChange = new vscode.EventEmitter<vscode.Location | null>();
+	private _onInspectedElementChange = new vscode.EventEmitter<InspectionResult | null>();
 	onInspectedElementChange = this._onInspectedElementChange.event;
 
 	private _onInspectHostChange = new vscode.EventEmitter<boolean>();
@@ -107,11 +107,11 @@ export class DevtoolsSession extends vscode.Disposable {
 		}
 	}
 
-	private async getValidReference(payload: InspectElementParsedFullData): Promise<vscode.Location | null> {
+	private async getValidReference(payload: InspectElementParsedFullData): Promise<InspectionResult | null> {
 		try {
 			const { parsedSource } = payload.value;
 			if (parsedSource) {
-				const { source, column, line } = parsedSource;
+				const { origin, source, column, line, componentName } = parsedSource;
 				let reference: vscode.Uri | null = null;
 				if (source.type === 'URL') {
 					reference = await this.resolveRelativeReference(source.relativePath);
@@ -132,23 +132,28 @@ export class DevtoolsSession extends vscode.Disposable {
 					new vscode.Range(0, 0, Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER)
 				);
 
-				let range = fullRange;
+				if (process.env.VSCODE_DEV === '1') {
+					console.log(`[cs-devtools] ${parsedSource}`);
+				}
 
-				if (parsedSource.symbolicated) {
+				let range = fullRange;
+				if (origin === InfoOrigin.Tag || origin === InfoOrigin.DevtoolsSymbolicated) {
 					const fileArrayBuffer = await vscode.workspace.fs.readFile(reference);
 					const fileString = fileArrayBuffer.toString().replace(/\\n/g, '\n');
-					const fullRange = await findTsxNodeAtLine(fileString, line);
-					const endLine = fullRange ? fullRange.endLine : line;
+					const foundRange = await findTsxNodeAtLine(fileString, line - 1);
+					const endLine = foundRange ? foundRange.endLine : line - 1;
 
 					range = new vscode.Range(
-						new vscode.Position(line, column),
+						new vscode.Position(line - 1, column),
 						new vscode.Position(endLine, 9999999),
 					);
 				}
-				return new vscode.Location(
+				const location = new vscode.Location(
 					reference,
 					range
 				);
+
+				return { location, componentName };
 			} else {
 				return null;
 			}
@@ -191,6 +196,10 @@ export class DevtoolsSession extends vscode.Disposable {
 		this._devtools.stopInspectingHost();
 	}
 
+	inspectingClearOverlays() {
+		this._devtools.inspectingClearOverlays();
+	}
+
 	override dispose() {
 		super.dispose();
 		this._cleanupProxy();
@@ -218,7 +227,7 @@ export class ReactDevtoolsManager extends vscode.Disposable {
 	private _onActiveSessionStatusChange = new vscode.EventEmitter<DevtoolsStatus>();
 	onActiveSessionStatusChange = this._onActiveSessionStatusChange.event;
 
-	private _onActiveSessionInspectedElementChange = new vscode.EventEmitter<vscode.Location | null>();
+	private _onActiveSessionInspectedElementChange = new vscode.EventEmitter<InspectionResult | null>();
 	onActiveSessionInspectedElementChange = this._onActiveSessionInspectedElementChange.event;
 
 	private _onActiveSessionInspectHostChange = new vscode.EventEmitter<boolean>();
@@ -300,6 +309,14 @@ export class ReactDevtoolsManager extends vscode.Disposable {
 		this.activeSession.stopInspectingHost();
 	}
 
+	inspectingClearOverlays() {
+		if (!this.activeSession) {
+			console.error('Cannot clear inspecting overlays: no active session');
+			return;
+		}
+		this.activeSession.inspectingClearOverlays();
+	}
+
 	private clearSessionDisposables() {
 		// Clean up old listeners
 		this.activeSessionDisposables.forEach(d => d.dispose());
@@ -329,3 +346,7 @@ class DeferredPromise {
 	}
 }
 
+export function isViteConfigFile(uri: vscode.Uri): boolean {
+	const base = basename(uri.fsPath);
+	return /^vite\.config\.(ts|js|mjs|cjs)$/.test(base);
+}

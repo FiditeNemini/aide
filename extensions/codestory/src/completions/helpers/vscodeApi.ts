@@ -7,8 +7,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { IdentifierNodeInformation, IdentifierNodeType } from '../../sidecar/types';
-import { SideCarClient } from '../../sidecar/client';
-import { shouldTrackFile } from '../../utilities/openTabs';
 
 function windowsToPosix(windowsPath: string): string {
 	let posixPath = windowsPath.split('\\').join('/');
@@ -131,7 +129,6 @@ export function sidecarTypeDefinitionsWithNode(typeDefinitionProviders: TypeDefi
 export async function typeDefinitionForIdentifierNodes(
 	nodes: IdentifierNodeType,
 	documentUri: vscode.Uri,
-	sidecarClient: SideCarClient,
 ): Promise<TypeDefinitionProviderWithNode[]> {
 	const identifierNodes = nodes.identifier_nodes.map((node) => {
 		return {
@@ -157,7 +154,6 @@ export async function typeDefinitionForIdentifierNodes(
 			identifierNode.node,
 			documentUri,
 			new vscode.Position(identifierNode.node.range.startPosition.line, identifierNode.node.range.startPosition.character),
-			sidecarClient,
 		);
 		return {
 			node: identifierNode.node,
@@ -173,7 +169,6 @@ export async function typeDefinitionProvider(
 	identifierNode: IdentifierNodeInformation,
 	filepath: vscode.Uri,
 	position: vscode.Position,
-	sidecarClient: SideCarClient,
 ): Promise<TypeDefinitionProvider[]> {
 	// console.log('invoking goToDefinition');
 	// console.log(position);
@@ -186,16 +181,6 @@ export async function typeDefinitionProvider(
 		return Promise.all(locations.map(async (location) => {
 			const uri = location.targetUri;
 			const range = location.targetRange;
-			// we have to always open the text document first, this ends up sending
-			// it over to the sidecar as a side-effect but that is fine
-			const textDocument = await vscode.workspace.openTextDocument(uri);
-
-			// No need to await on this
-			if (shouldTrackFile(uri)) {
-				// console.log('we are tracking this uri');
-				// console.log(uri);
-				sidecarClient.documentOpen(textDocument.uri.fsPath, textDocument.getText(), textDocument.languageId);
-			}
 
 			// return the value as we would normally
 			return {

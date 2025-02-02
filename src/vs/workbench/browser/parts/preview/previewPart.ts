@@ -18,6 +18,7 @@ import { EditorPart, IEditorPartUIState } from '../editor/editorPart.js';
 import { getWindow } from '../../../../base/browser/dom.js';
 import { IEditorPartOptions } from '../../../common/editor.js';
 import './media/previewPart.css';
+import { mainWindow } from '../../../../base/browser/window.js';
 
 
 export interface IPreviewEditorPartOpenOptions {
@@ -59,7 +60,7 @@ export class PreviewEditorPart extends OverlayedPart implements IDisposable {
 		layoutService.registerOverlayedPart(this);
 	}
 
-	override createContentArea(parent: HTMLElement): HTMLElement {
+	protected override createContentArea(parent: HTMLElement): HTMLElement {
 
 		// starts invisible by default
 		parent.style.visibility = 'hidden';
@@ -161,7 +162,7 @@ export class PreviewEditorPart extends OverlayedPart implements IDisposable {
 	}
 }
 
-class PreviewEditorPartImpl extends EditorPart {
+export class PreviewEditorPartImpl extends EditorPart {
 	constructor(
 		editorPartsView: IEditorPartsView,
 		private readonly state: IEditorPartUIState | undefined,
@@ -177,7 +178,7 @@ class PreviewEditorPartImpl extends EditorPart {
 			editorPartsView,
 			'workbench.parts.previewEditor',
 			'Preview Editor Part',
-			999999, // TODO @g-danna pass real window ID
+			mainWindow.vscodeWindowId,
 			instantiationService,
 			themeService,
 			configurationService,

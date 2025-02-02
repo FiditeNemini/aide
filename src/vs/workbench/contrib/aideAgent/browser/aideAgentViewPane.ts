@@ -71,7 +71,8 @@ export class ChatViewPane extends ViewPane {
 		@IDevtoolsService devoolsService: IDevtoolsService
 	) {
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, telemetryService, hoverService);
-		devoolsService.initialize();
+		// Temporary performance fix @g-danna
+		setTimeout(() => devoolsService.initialize(), 300);
 
 		this._pinnedContextWidget = this._register(this.instantiationService.createInstance(PinnedContextWidget));
 		this._register(this._pinnedContextWidget.onDidChangeHeight(() => {

@@ -24,8 +24,8 @@ import { ContextKeyValue, IContextKey, IContextKeyService, RawContextKey } from 
 import { isHTMLElement } from '../../../../base/browser/dom.js';
 import { ServiceCollection } from '../../../../platform/instantiation/common/serviceCollection.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
-import { IPreviewEditorPartOpenOptions } from '../preview/previewPart.js';
-import { IPreviewPartService } from '../../../services/previewPart/browser/previewPartService.js';
+import { IPreviewEditorPartOpenOptions, PreviewEditorPartImpl } from '../preview/previewPart.js';
+import { IPreviewPartService, } from '../../../services/previewPart/browser/previewPartService.js';
 
 interface IEditorPartsUIState {
 	readonly auxiliary: IAuxiliaryEditorPartState[];
@@ -47,6 +47,9 @@ export class EditorParts extends MultiWindowParts<EditorPart> implements IEditor
 	declare readonly _serviceBrand: undefined;
 
 	readonly mainPart = this._register(this.createMainEditorPart());
+
+	private previewPart: PreviewEditorPartImpl | undefined;
+	// TODO @g-danna move preview edit part here
 
 	private mostRecentActiveParts = [this.mainPart];
 
@@ -132,9 +135,10 @@ export class EditorParts extends MultiWindowParts<EditorPart> implements IEditor
 			this.mapPartToInstantiationService.set(part.windowId, instantiationService);
 			disposables.add(toDisposable(() => this.mapPartToInstantiationService.delete(part.windowId)));
 
-			// Events
 			this._onDidAddGroup.fire(part.activeGroup);
-			this._register(this.registerPart(part));
+
+			this.previewPart = part;
+			this._register(this.previewPart);
 			this.didInitializePreviewEditor = true;
 		}
 		return part;
@@ -302,7 +306,7 @@ export class EditorParts extends MultiWindowParts<EditorPart> implements IEditor
 
 	private createState(): IEditorPartsUIState {
 		return {
-			auxiliary: this.parts.filter(part => part !== this.mainPart).map(part => {
+			auxiliary: this.parts.filter(part => part !== this.mainPart && part !== this.previewPart).map(part => {
 				const auxiliaryWindow = this.auxiliaryWindowService.getWindow(part.windowId);
 
 				return {
@@ -361,9 +365,10 @@ export class EditorParts extends MultiWindowParts<EditorPart> implements IEditor
 		// them merge into the main part.
 
 		for (const part of this.parts) {
-			if (part === this.mainPart) {
+			if (part === this.mainPart || part === this.previewPart) {
 				continue; // main part takes care on its own
 			}
+
 
 			for (const group of part.getGroups(GroupsOrder.MOST_RECENTLY_ACTIVE)) {
 				await group.closeAllEditors({ excludeConfirming: true });

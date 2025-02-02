@@ -19,6 +19,26 @@ interface EditorPaths {
 	displayName: string;
 }
 
+interface ExtensionEntry {
+	identifier: {
+		id: string;
+	};
+	version: string;
+	location: {
+		$mid: number;
+		fsPath: string;
+		external: string;
+		path: string;
+		scheme: string;
+	};
+	relativeLocation: string;
+	metadata: {
+		installedTimestamp: number;
+		pinned: boolean;
+		source: string;
+	};
+}
+
 interface ExtensionMetadata {
 	namespace: string;
 	name: string;
@@ -288,14 +308,27 @@ export const migrateFromVSCodeOSS = async (logger: Logger): Promise<void> => {
 			if (!settingsContent.trim()) {
 				shouldMigrate = true;
 			} else {
-				const settingsJson = JSON.parse(settingsContent);
-				// Check if the JSON object has any keys
-				if (Object.keys(settingsJson).length === 0) {
+				// Try to fix common JSON formatting issues
+				const cleanedContent = settingsContent
+					.replace(/[\u200B-\u200D\uFEFF]/g, '') // Remove zero-width spaces
+					.replace(/,(\s*[}\]])/g, '$1') // Remove trailing commas
+					.replace(/([{,]\s*)'([^']+)'(\s*:)/g, '$1"$2"$3') // Convert single quotes to double quotes for property names
+					.replace(/([{,]\s*)([a-zA-Z0-9_]+)(\s*:)/g, '$1"$2"$3'); // Add quotes to unquoted property names
+
+				try {
+					const settingsJson = JSON.parse(cleanedContent);
+					// Check if the JSON object has any keys
+					if (Object.keys(settingsJson).length === 0) {
+						shouldMigrate = true;
+					}
+				} catch (parseError) {
+					// If we still can't parse after cleaning, log and migrate
+					logger.warn('Error parsing settings file even after cleanup, will attempt migration', parseError);
 					shouldMigrate = true;
 				}
 			}
 		} catch (error) {
-			// If there's an error reading or parsing the file, assume it's corrupted and migrate
+			// If there's an error reading the file, assume it's corrupted and migrate
 			logger.warn('Error reading settings file, will attempt migration', error);
 			shouldMigrate = true;
 		}
@@ -467,18 +500,54 @@ async function installExtensionFromOpenVSX(
 	sourceDir: string,
 	logger: Logger
 ): Promise<ExtensionInstallResult> {
-	const { namespace, name } = extensionInfo;
+	const { namespace, name, version } = extensionInfo;
+	const extensionId = `${namespace}.${name}`;
 
 	try {
 		// First, copy the extension directory
-		const sourcePath = path.join(sourceDir, `${namespace}.${name}-${extensionInfo.version}`);
-		const destPath = path.join(destDir, `${namespace}.${name}-${extensionInfo.version}`);
+		const extensionDirName = `${extensionId}-${version}`;
+		const sourcePath = path.join(sourceDir, extensionDirName);
+		const destPath = path.join(destDir, extensionDirName);
 
 		// Ensure the destination directory exists
 		ensureDir(path.dirname(destPath));
 
 		// Copy the extension directory
 		fs.cpSync(sourcePath, destPath, { recursive: true });
+
+		// Update extensions.json
+		const entries = readExtensionsJson(destDir);
+
+		// Remove any existing entry for this extension
+		const existingIndex = entries.findIndex(e => e.identifier.id === extensionId);
+		if (existingIndex !== -1) {
+			entries.splice(existingIndex, 1);
+		}
+
+		// Add the new extension entry
+		const newEntry: ExtensionEntry = {
+			identifier: {
+				id: extensionId
+			},
+			version: version,
+			location: {
+				$mid: 1,
+				fsPath: destPath,
+				external: `file://${destPath}`,
+				path: destPath,
+				scheme: 'file'
+			},
+			relativeLocation: extensionDirName,
+			metadata: {
+				installedTimestamp: Date.now(),
+				pinned: true,
+				source: 'vsix'
+			}
+		};
+		entries.push(newEntry);
+
+		// Write back the updated extensions.json
+		writeExtensionsJson(destDir, entries);
 
 		// Check if extension exists on OpenVSX (just for update status)
 		const response = await retry(async () => {
@@ -491,21 +560,21 @@ async function installExtensionFromOpenVSX(
 
 		const isOnOpenVSX = !response.notFound;
 
-		logger.info(`Successfully copied ${namespace}.${name} (Available on OpenVSX: ${isOnOpenVSX})`);
+		logger.info(`Successfully installed ${extensionId} (Available on OpenVSX: ${isOnOpenVSX})`);
 
 		return {
 			success: true,
-			message: `Successfully copied ${namespace}.${name}`,
+			message: `Successfully installed ${extensionId}`,
 			isOnOpenVSX
 		};
 
 	} catch (error) {
 		const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-		logger.error(`Failed to copy ${namespace}.${name}: ${errorMessage}`);
+		logger.error(`Failed to install ${extensionId}: ${errorMessage}`);
 
 		return {
 			success: false,
-			message: `Failed to copy ${namespace}.${name}: ${errorMessage}`,
+			message: `Failed to install ${extensionId}: ${errorMessage}`,
 			isOnOpenVSX: false
 		};
 	}
@@ -527,4 +596,28 @@ function parseExtensionFolder(extensionFolderName: string): ExtensionMetadata | 
 		name: match[2],
 		version: match[3]
 	};
+}
+
+function readExtensionsJson(extensionsDir: string): ExtensionEntry[] {
+	const extensionsJsonPath = path.join(extensionsDir, 'extensions.json');
+	try {
+		if (fs.existsSync(extensionsJsonPath)) {
+			const content = fs.readFileSync(extensionsJsonPath, 'utf8');
+			return JSON.parse(content);
+		}
+	} catch (error) {
+		// If there's an error reading the file, return empty array
+		console.error('Error reading extensions.json:', error);
+	}
+	return [];
+}
+
+function writeExtensionsJson(extensionsDir: string, entries: ExtensionEntry[]): void {
+	const extensionsJsonPath = path.join(extensionsDir, 'extensions.json');
+	try {
+		fs.writeFileSync(extensionsJsonPath, JSON.stringify(entries, null, 4));
+	} catch (error) {
+		console.error('Error writing extensions.json:', error);
+		throw error;
+	}
 }

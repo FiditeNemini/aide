@@ -486,7 +486,7 @@ export class ExtHostAideAgentAgents2 extends Disposable implements ExtHostAideAg
 			// REQUEST turn
 			const varsWithoutTools = h.request.variables.variables
 				.filter(v => !v.isTool)
-				.map(typeConvert.ChatPromptReference.to);
+				.map(v => typeConvert.ChatPromptReference.to(v, true));
 			const toolReferences = h.request.variables.variables
 				.filter(v => v.isTool)
 				.map(typeConvert.ChatLanguageModelToolReference.to);
@@ -643,6 +643,7 @@ class ExtHostChatAgent {
 	private _titleProvider?: vscode.ChatTitleProvider | undefined;
 	private _requester: vscode.ChatRequesterInformation | undefined;
 	private _supportsSlowReferences: boolean | undefined;
+	private _pauseStateEmitter = new Emitter<vscode.ChatParticipantPauseStateEvent>();
 
 	constructor(
 		public readonly extension: IExtensionDescription,
@@ -664,6 +665,10 @@ class ExtHostChatAgent {
 
 	acceptAction(event: vscode.ChatUserActionEvent) {
 		this._onDidPerformAction.fire(event);
+	}
+
+	setChatRequestPauseState(pauseState: vscode.ChatParticipantPauseStateEvent) {
+		this._pauseStateEmitter.fire(pauseState);
 	}
 
 	async invokeCompletionProvider(query: string, token: CancellationToken): Promise<vscode.ChatCompletionItem[]> {
@@ -869,6 +874,10 @@ class ExtHostChatAgent {
 				checkProposedApiEnabled(that.extension, 'defaultChatParticipant');
 				that._titleProvider = v;
 				updateMetadataSoon();
+			},
+			get onDidChangePauseState() {
+				checkProposedApiEnabled(that.extension, 'defaultChatParticipant');
+				return that._pauseStateEmitter.event;
 			},
 			get titleProvider() {
 				checkProposedApiEnabled(that.extension, 'defaultChatParticipant');

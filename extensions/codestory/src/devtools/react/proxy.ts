@@ -37,7 +37,7 @@ function pipeThrough(
 const makeDevtoolsScript = (location: string) => `<script src="${location}"></script>`;
 
 // TODO(@g-danna) import raw contents of file (and minify)
-const makeNavigationScript = () => `<script>
+const makeNavigationScript = (nonce: string | null) => `<script ${nonce ? `nonce="${nonce}"` : ''}>
 (function() {
 // Save references to the original History API methods
 const originalPushState = history.pushState;
@@ -87,7 +87,8 @@ location: window.location.href
 
 function startInterceptingDocument(
 	proxy: httpProxy<http.IncomingMessage, http.ServerResponse<http.IncomingMessage>>,
-	reactDevtoolsPort: number
+	reactDevtoolsPort: number,
+	// proxyPort: number,
 ) {
 	proxy.on('proxyRes', (proxyRes, _req, res) => {
 		const bodyChunks: Uint8Array[] = [];
@@ -150,15 +151,17 @@ function startInterceptingDocument(
 			const devtoolsScriptFragment = parseFragment(makeDevtoolsScript(devtoolsUrl));
 			const devtoolsScriptNode = devtoolsScriptFragment.childNodes[0];
 
+			defaultTreeAdapter.appendChild(headNode, devtoolsScriptNode);
 
-			const firstChild = defaultTreeAdapter.getFirstChild(headNode);
-			if (firstChild) {
-				defaultTreeAdapter.insertBefore(headNode, devtoolsScriptNode, firstChild);
-			} else {
-				defaultTreeAdapter.appendChild(headNode, devtoolsScriptNode);
+			// Adjust headers
+			const headers = { ...proxyRes.headers };
+			let cspHeader = headers['content-security-policy'];
+			if (Array.isArray(cspHeader)) {
+				cspHeader = cspHeader.join('; ');
 			}
+			const nonce = cspHeader ? extractNonce(cspHeader) : null;
 
-			const navigationScriptFragment = parseFragment(makeNavigationScript(), { onParseError: (error) => console.log(error) });
+			const navigationScriptFragment = parseFragment(makeNavigationScript(nonce), { onParseError: (error) => console.log(error) });
 			const navigationScriptNode = navigationScriptFragment.childNodes[0];
 
 			defaultTreeAdapter.appendChild(headNode, navigationScriptNode);
@@ -166,8 +169,39 @@ function startInterceptingDocument(
 			// Re-serialize the HTML
 			const modifiedBody = serialize(document);
 
-			// Adjust headers
-			const headers = { ...proxyRes.headers };
+
+
+
+
+
+			if (typeof cspHeader === 'string') {
+				cspHeader = cspHeader.replace(
+					/frame-ancestors[^;]*(;|$)/,
+					''
+					// Remove any CSP restrictions, as we cannot use custom protocols apparently? (https://issues.chromium.org/issues/373928202)
+					// `frame-ancestors 'self' vscode-webview://* https://*.vscode-cdn.net http://localhost:${proxyPort} ;`
+				);
+
+				// Allow 'unsafe-inline' and 'unsafe-eval'.
+				//  If there's an explicit script-src, add them there; otherwise add them to default-src.
+				if (/script-src/.test(cspHeader)) {
+					// Append unsafe-inline / unsafe-eval to script-src
+					cspHeader = cspHeader.replace(
+						/(script-src[^;]+)/,
+						`$1 'unsafe-inline' 'unsafe-eval'`
+					);
+				} else {
+					// No script-src directive → use default-src
+					cspHeader = cspHeader.replace(
+						/(default-src[^;]+)/,
+						`$1 'unsafe-inline' 'unsafe-eval'`
+					);
+				}
+
+				headers['content-security-policy'] = cspHeader;
+			}
+
+
 			delete headers['transfer-encoding'];
 			delete headers['content-encoding'];
 			headers['content-length'] = Buffer.byteLength(modifiedBody).toString();
@@ -178,15 +212,29 @@ function startInterceptingDocument(
 	});
 }
 
+function extractNonce(cspHeader: string): string | null {
+	if (!cspHeader) {
+		return null;
+	}
+	// Regular expression to match nonce pattern in either script-src or default-src
+	const nonceRegex = /(?:script-src|default-src)[^;]*'nonce-([^']+)'/;
+
+	const match = cspHeader.match(nonceRegex);
+
+	// Return the nonce value if found, otherwise null
+	return match ? match[1] : null;
+}
+
 export type ProxyResult = {
-	listenPort: number;
+	proxyPort: number;
 	cleanup: () => void;
 };
+
 
 export function proxy(port: number, reactDevtoolsPort: number): Promise<ProxyResult> {
 	const maxAttempts = 10;
 	let attempt = 0;
-	let listenPort = 8000;
+	let proxyPort = 8000;
 
 	function tryListen(resolve: (result: ProxyResult) => void, reject: (reason?: any) => void) {
 
@@ -239,7 +287,7 @@ export function proxy(port: number, reactDevtoolsPort: number): Promise<ProxyRes
 		// Handle server "listening" event
 		server.once('listening', () => {
 			resolve({
-				listenPort,
+				proxyPort: proxyPort,
 				cleanup: cleanup.bind(null, proxyServer, server),
 			});
 		});
@@ -249,7 +297,7 @@ export function proxy(port: number, reactDevtoolsPort: number): Promise<ProxyRes
 			if (err.code === 'EADDRINUSE' && attempt < maxAttempts) {
 				cleanup(proxyServer, server);
 				attempt++;
-				listenPort++;
+				proxyPort++;
 				tryListen(resolve, reject);
 			} else {
 				cleanup(proxyServer, server);
@@ -257,7 +305,7 @@ export function proxy(port: number, reactDevtoolsPort: number): Promise<ProxyRes
 			}
 		});
 
-		server.listen(listenPort);
+		server.listen(proxyPort);
 	}
 
 	return new Promise(tryListen);

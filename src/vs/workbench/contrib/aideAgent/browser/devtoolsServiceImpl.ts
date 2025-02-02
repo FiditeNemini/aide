@@ -3,32 +3,40 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { getWindow } from '../../../../base/browser/dom.js';
+import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
-import { IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
-import { ChatViewId } from './aideAgent.js';
-
-import { DevtoolsStatus, IDevtoolsService } from '../common/devtoolsService.js';
-import { CONTEXT_DEVTOOLS_STATUS, CONTEXT_IS_DEVTOOLS_FEATURE_ENABLED, CONTEXT_IS_INSPECTING_HOST } from '../common/devtoolsServiceContextKeys.js';
-import { IViewsService } from '../../../services/views/common/viewsService.js';
-import { ChatViewPane } from './aideAgentViewPane.js';
-import { Location } from '../../../../editor/common/languages.js';
-import { IFileService } from '../../../../platform/files/common/files.js';
-import { URI } from '../../../../base/common/uri.js';
-import { IEnvironmentService } from '../../../../platform/environment/common/environment.js';
-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { ChatDynamicVariableModel } from './contrib/aideAgentDynamicVariables.js';
-import { IDynamicVariable } from '../common/aideAgentVariables.js';
-import { localize } from '../../../../nls.js';
-import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
-import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { AgentMode } from '../../../../platform/aideAgent/common/model.js';
+import { IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
+import { IEnvironmentService } from '../../../../platform/environment/common/environment.js';
+import { IFileService } from '../../../../platform/files/common/files.js';
+import { IWorkspaceContextService, IWorkspaceFolder } from '../../../../platform/workspace/common/workspace.js';
 import { IHostService } from '../../../services/host/browser/host.js';
-import { convertBufferToScreenshotVariable } from './contrib/screenshot.js';
-import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
-import { IFileQuery, ISearchService, QueryType } from '../../../services/search/common/search.js';
-import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { IPreviewPartService } from '../../../services/previewPart/browser/previewPartService.js';
+import { IFileQuery, ISearchService, QueryType } from '../../../services/search/common/search.js';
+import { IViewsService } from '../../../services/views/common/viewsService.js';
+import { IDynamicVariable } from '../common/aideAgentVariables.js';
+import { DevtoolsStatus, IDevtoolsService, InspectionResult } from '../common/devtoolsService.js';
+import { CONTEXT_DEVTOOLS_STATUS, CONTEXT_IS_DEVTOOLS_FEATURE_ENABLED, CONTEXT_IS_INSPECTING_HOST, CONTEXT_SHOULD_SHOW_ADD_PLUGIN } from '../common/devtoolsServiceContextKeys.js';
+import { ChatViewId } from './aideAgent.js';
+import { ChatViewPane } from './aideAgentViewPane.js';
+import { URI } from '../../../../base/common/uri.js';
+import { ChatDynamicVariableModel } from './contrib/aideAgentDynamicVariables.js';
+import { convertBufferToScreenshotVariable } from './contrib/screenshot.js';
+import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { EditorResourceAccessor } from '../../../common/editor.js';
+import { basename } from '../../../../base/common/resources.js';
+
+
+const viteConfigs = new Set(['vite.config.ts', 'vite.config.js', 'vite.config.mjs', 'vite.config.cjs']);
+
+const taggerPackageName = '@codestoryai/component-tagger';
+
+type PackageJSONType = {
+	dependencies?: Record<string, string>;
+	devDependencies?: Record<string, string>;
+};
 
 export class DevtoolsService extends Disposable implements IDevtoolsService {
 	declare _serviceBrand: undefined;
@@ -42,7 +50,12 @@ export class DevtoolsService extends Disposable implements IDevtoolsService {
 	private readonly _onDidTriggerInspectingHostStop = this._register(new Emitter<void>());
 	public readonly onDidTriggerInspectingHostStop = this._onDidTriggerInspectingHostStop.event;
 
+	private readonly _onDidClearInspectingOverlays = this._register(new Emitter<void>());
+	public readonly onDidClearInspectingOverlays = this._onDidClearInspectingOverlays.event;
+
 	private _isFeatureEnabled: IContextKey<boolean>;
+
+	private _shouldShowAddPlugin: IContextKey<boolean>;
 
 	private _status: IContextKey<DevtoolsStatus>;
 	get status(): DevtoolsStatus {
@@ -56,15 +69,15 @@ export class DevtoolsService extends Disposable implements IDevtoolsService {
 
 	set status(status: DevtoolsStatus) {
 		this._status.set(status);
-		this.notifyStatusChange();
+		this.onStatusChange();
 	}
 
-	private _latestPayload: Location | null | undefined;
+	private _latestPayload: InspectionResult | null | undefined;
 	get latestPayload() {
 		return this._latestPayload;
 	}
 
-	set latestPayload(payload: Location | null | undefined) {
+	set latestPayload(payload: InspectionResult | null | undefined) {
 		this._latestPayload = payload;
 	}
 
@@ -96,39 +109,87 @@ export class DevtoolsService extends Disposable implements IDevtoolsService {
 		@IViewsService private readonly viewsService: IViewsService,
 		@IFileService private readonly fileService: IFileService,
 		@IEnvironmentService private readonly environmentService: IEnvironmentService,
-		@IConfigurationService private readonly configurationService: IConfigurationService,
-		@INotificationService private readonly notificationService: INotificationService,
-		@IOpenerService private readonly openerService: IOpenerService,
 		@IHostService private readonly hostService: IHostService,
 		@IWorkspaceContextService private readonly workspaceContextService: IWorkspaceContextService,
 		@ISearchService private readonly searchService: ISearchService,
-		@IPreviewPartService private readonly previewPartService: IPreviewPartService
+		@IPreviewPartService private readonly previewPartService: IPreviewPartService,
+		@IEditorService private readonly editorService: IEditorService
 	) {
 		super();
 
 		this._status = CONTEXT_DEVTOOLS_STATUS.bindTo(this.contextKeyService);
 		this._isInspecting = CONTEXT_IS_INSPECTING_HOST.bindTo(this.contextKeyService);
 		this._isFeatureEnabled = CONTEXT_IS_DEVTOOLS_FEATURE_ENABLED.bindTo(this.contextKeyService);
+		this._shouldShowAddPlugin = CONTEXT_SHOULD_SHOW_ADD_PLUGIN.bindTo(this.contextKeyService);
 
-		// Check current state of your config at startup:
-		this.updateConfig();
-
-		// Subscribe to config changes:
-		this._register(
-			this.configurationService.onDidChangeConfiguration(e => {
-				if (e.affectsConfiguration('aide')) {
-					this.updateConfig();
-				}
-			})
-		);
+		this.editorService.onDidActiveEditorChange(() => this.checkIfShouldShowAddPlugin());
+		// (You might also listen for workspace folder changes, if that matters)
 	}
 
 	async initialize() {
 		const isReactProject = await this.hasReactDependencyInAnyPackageJson();
-		if (isReactProject) {
-			this.configurationService.updateValue('aide.enableInspectWithDevtools', true);
+		this._isFeatureEnabled.set(isReactProject);
+
+		this.checkIfShouldShowAddPlugin();
+	}
+
+	private async checkForReactDependencyInProject(workspaceFolder: IWorkspaceFolder) {
+		// Search for all package.json files under the folder, excluding settings and ignore files
+		const searchQuery: IFileQuery = {
+			type: QueryType.File,
+			folderQueries: [{ folder: workspaceFolder.uri, disregardGlobalIgnoreFiles: false, disregardIgnoreFiles: false }],
+			filePattern: 'package.json',
+		};
+
+		const searchResults = await this.searchService.fileSearch(searchQuery, CancellationToken.None);
+		for (const fileMatch of searchResults.results) {
+			try {
+				// Load content of each package.json
+				const fileContent = (await this.fileService.readFile(fileMatch.resource)).value.toString();
+				const parsed = JSON.parse(fileContent);
+
+				// Check if 'react' is in dependencies or devDependencies
+				if (this.checkForDependency('react', parsed)) {
+					return fileMatch;
+				}
+			} catch {
+				// Ignore file parsing errors
+			}
+		}
+		return false;
+	}
+
+
+	private async checkIfShouldShowAddPlugin() {
+		const editor = this.editorService.activeEditor;
+		const resource = EditorResourceAccessor.getOriginalUri(editor);
+		if (!resource) {
+			return;
+		}
+		const fileName = basename(resource);
+		if (viteConfigs.has(fileName)) {
+			const folder = this.workspaceContextService.getWorkspaceFolder(resource);
+			if (!folder) {
+				return;
+			}
+			const matchedPackageJson = await this.checkForReactDependencyInProject(folder);
+			if (matchedPackageJson) {
+				const fileContent = (await this.fileService.readFile(matchedPackageJson.resource)).value.toString();
+				const parsed = JSON.parse(fileContent);
+				const hasComponentTagger = this.checkForDependency(taggerPackageName, parsed);
+				this._shouldShowAddPlugin.set(!hasComponentTagger);
+			}
 		}
 	}
+
+	private checkForDependency(dependency: string, parsedJSON: PackageJSONType) {
+		const depsValues = parsedJSON.dependencies ? Object.keys(parsedJSON.dependencies) : [];
+		const depsSet = new Set(depsValues);
+		const devDepsValues = parsedJSON.devDependencies ? Object.keys(parsedJSON.devDependencies) : [];
+		const devDepsSet = new Set(devDepsValues);
+		return depsSet.has(dependency) || devDepsSet.has(dependency);
+	}
+
 
 	private async hasReactDependencyInAnyPackageJson(): Promise<boolean> {
 		// Get all workspace folders (there may be multiple)
@@ -138,31 +199,8 @@ export class DevtoolsService extends Disposable implements IDevtoolsService {
 		}
 
 		for (const folder of folders) {
-			// Search for all package.json files under the folder, excluding settings and ignore files
-			const searchQuery: IFileQuery = {
-				type: QueryType.File,
-				folderQueries: [{ folder: folder.uri, disregardGlobalIgnoreFiles: false, disregardIgnoreFiles: false }],
-				filePattern: 'package.json',
-			};
-
-			const searchResults = await this.searchService.fileSearch(searchQuery, CancellationToken.None);
-			for (const fileMatch of searchResults.results) {
-				try {
-					// Load content of each package.json
-					const fileContent = (await this.fileService.readFile(fileMatch.resource)).value.toString();
-					const parsed = JSON.parse(fileContent);
-
-					// Check if 'react' is in dependencies or devDependencies
-					if (
-						(parsed.dependencies && parsed.dependencies.react) ||
-						(parsed.devDependencies && parsed.devDependencies.react)
-					) {
-						return true;
-					}
-				} catch {
-					// Ignore file parsing errors
-				}
-			}
+			const isReactProject = await this.checkForReactDependencyInProject(folder);
+			if (isReactProject) { return true; }
 		}
 		return false;
 	}
@@ -177,14 +215,7 @@ export class DevtoolsService extends Disposable implements IDevtoolsService {
 	}
 
 
-	private updateConfig(): void {
-		// Read the configuration value:
-		const isEnabled = !!this.configurationService.getValue<boolean>('aide.enableInspectWithDevtools');
-		this._isFeatureEnabled.set(isEnabled);
-	}
-
-
-	private notifyStatusChange() {
+	private onStatusChange() {
 		const isDevelopment = !this.environmentService.isBuilt || this.environmentService.isExtensionDevelopment;
 		if (isDevelopment) {
 			console.log('Devtools service status: ', this.status);
@@ -197,8 +228,32 @@ export class DevtoolsService extends Disposable implements IDevtoolsService {
 		this._onDidChangeStatus.fire(this.status);
 	}
 
+	async getScreenshot() {
+		const screenshot = await this.hostService.getScreenshot();
+		if (screenshot) {
+			const previewClientRect = this.previewPartService.getBoundingClientRect();
+			const pixelRatio = getWindow(this.previewPartService.mainPart.element).devicePixelRatio;
+			const cropRectangle: CropRectangle = {
+				x: previewClientRect.left * pixelRatio,
+				y: previewClientRect.top * pixelRatio,
+				width: previewClientRect.width * pixelRatio,
+				height: previewClientRect.height * pixelRatio
+			};
+			const croppedScreenShot = await cropImage(screenshot, cropRectangle);
+			return croppedScreenShot;
+		}
+		return undefined;
+	}
 
-	private async addReference(payload: Location | null) {
+	private async attachScreenshot() {
+		const screenshot = await this.getScreenshot();
+		if (screenshot) {
+			const widget = this.getWidget();
+			widget.attachmentModel.addContext(convertBufferToScreenshotVariable(screenshot));
+		}
+	}
+
+	private async addReference(payload: InspectionResult | null) {
 		const widget = this.getWidget();
 		const input = widget.inputEditor;
 		const inputModel = input.getModel();
@@ -212,13 +267,17 @@ export class DevtoolsService extends Disposable implements IDevtoolsService {
 			return;
 		}
 
-		if (payload === null) {
-			this.notifyProjectNotSupported();
-		} else if (widget.viewModel?.model) {
+		if (widget.viewModel?.model) {
 			widget.viewModel.model.isDevtoolsContext = true;
+			await this.attachScreenshot();
+			this._onDidClearInspectingOverlays.fire();
 
-			const file = await this.fileService.stat(payload.uri);
-			const displayName = `@${file.name}:${payload.range.startLineNumber}-${payload.range.endLineNumber}`;
+			if (payload === null) {
+				return;
+			}
+
+			const file = await this.fileService.stat(payload.location.uri);
+			const displayName = `@${payload.componentName || file.name}:${payload.location.range.startLineNumber}-${payload.location.range.endLineNumber}`;
 			const inputModelFullRange = inputModel.getFullModelRange();
 			// By default, append to the end of the model
 			let replaceRange = {
@@ -242,19 +301,6 @@ export class DevtoolsService extends Disposable implements IDevtoolsService {
 			// Add leading space if we are not at the very beginning of the text model
 			const output = isLeading ? displayName : ' ' + displayName;
 
-			const screenshot = await this.hostService.getScreenshot();
-
-
-
-
-			if (screenshot) {
-				const previewBoundingClientRect = this.previewPartService.getBoundingClientRect();
-				const croppedScreenShot = await cropImage(screenshot, previewBoundingClientRect);
-				widget.attachmentModel.addContext(convertBufferToScreenshotVariable(croppedScreenShot));
-			}
-
-
-
 			const success = input.executeEdits('addReactComponentSource', [{ range: replaceRange, text: output }]);
 			if (success) {
 				const variable: IDynamicVariable = {
@@ -265,30 +311,12 @@ export class DevtoolsService extends Disposable implements IDevtoolsService {
 						startColumn: replaceRange.startColumn + (isLeading ? 0 : 1),
 						endColumn: replaceRange.endColumn + displayName.length + (isLeading ? 0 : 1),
 					},
-					data: { uri: payload.uri, range: payload.range }
+					data: { uri: payload.location.uri, range: payload.location.range }
 				};
 				dynamicVariablesModel.addReference(variable);
 				input.focus();
 			}
 		}
-	}
-
-	private notifyProjectNotSupported() {
-		this.notificationService.prompt(
-			Severity.Info,
-			localize('aide.devtools.unsupportedProject', 'Your project doesn\'t seem to support React devtooling. You need to client render and have source maps enabled.'),
-			[
-				{
-					label: localize('aide.devtools.openDocumentation', 'Open documentation'),
-					run: () => {
-						// Construct the external URI to open
-						const externalUri = URI.parse('https://docs.aide.dev/experimental/react-devtools/#how-to-use');
-						// Use the opener service to open it in the user's browser
-						this.openerService.open(externalUri).catch(console.error);
-					}
-				}
-			]
-		);
 	}
 
 	startInspectingHost(): void {
@@ -299,12 +327,21 @@ export class DevtoolsService extends Disposable implements IDevtoolsService {
 	stopInspectingHost(): void {
 		this._isInspecting.set(false);
 		this._onDidTriggerInspectingHostStop.fire();
+		this._onDidClearInspectingOverlays.fire();
+	}
+
+	toggleInspectingHost(): void {
+		if (this._isInspecting.get()) {
+			this.stopInspectingHost();
+		} else {
+			this.startInspectingHost();
+		}
 	}
 }
 
 
 
-type CropRectangle = {
+export type CropRectangle = {
 	x: number;
 	y: number;
 	width: number;
@@ -312,16 +349,13 @@ type CropRectangle = {
 };
 
 async function cropImage(buffer: ArrayBufferLike, cropRectangle: CropRectangle): Promise<ArrayBufferLike> {
-
-	const originalBlob = new Blob([buffer]);
+	// Create blob with JPEG type
+	const originalBlob = new Blob([buffer], { type: 'image/jpeg' });
 	const url = URL.createObjectURL(originalBlob);
 	const img = await createImage(url);
-	// Clean up
-	URL.revokeObjectURL(url);
 
 	const canvas = document.createElement('canvas');
-	const ctx = canvas.getContext('2d');
-
+	const ctx = canvas.getContext('2d', { alpha: false }); // JPEG doesn't support alpha
 	if (!ctx) {
 		throw new Error('Failed to get canvas context');
 	}
@@ -330,16 +364,24 @@ async function cropImage(buffer: ArrayBufferLike, cropRectangle: CropRectangle):
 	canvas.width = cropRectangle.width;
 	canvas.height = cropRectangle.height;
 
+	// Set white background (since JPEG doesn't support transparency)
+	ctx.fillStyle = '#FFFFFF';
+	ctx.fillRect(0, 0, canvas.width, canvas.height);
+
 	// Draw the cropped portion
 	ctx.drawImage(
 		img,
-		cropRectangle.x, cropRectangle.y,  // Start at this point
-		cropRectangle.width, cropRectangle.height, // Width and height of source rectangle
-		0, 0, // Place at canvas origin
-		cropRectangle.width, cropRectangle.height // Width and height of destination rectangle
+		Math.round(cropRectangle.x), Math.round(cropRectangle.y),          // Start at this point
+		Math.round(cropRectangle.width), Math.round(cropRectangle.height), // Width and height of source rectangle
+		0, 0,                                                              // Place at canvas origin
+		Math.round(cropRectangle.width), Math.round(cropRectangle.height)  // Width and height of destination rectangle
 	);
 
-	return originalBlob.arrayBuffer();
+	// Clean up
+	URL.revokeObjectURL(url);
+
+	const newBlob = await canvasToBlob(canvas);
+	return newBlob.arrayBuffer();
 }
 
 function createImage(src: string): Promise<HTMLImageElement> {
@@ -352,10 +394,9 @@ function createImage(src: string): Promise<HTMLImageElement> {
 		img.src = src;
 	});
 }
-/*
 
 function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
-	return new Promise((resolve, reject) => {
+	return new Promise<Blob>((resolve, reject) => {
 		canvas.toBlob(
 			(blob) => {
 				if (blob) {
@@ -364,8 +405,8 @@ function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
 					reject(new Error('Failed to create blob'));
 				}
 			},
-			'image/png'  // or 'image/jpeg', etc.
+			'image/jpeg',
+			0.95  // High quality JPEG
 		);
 	});
 }
-*/

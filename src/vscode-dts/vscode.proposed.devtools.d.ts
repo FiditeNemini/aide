@@ -11,11 +11,18 @@ declare module 'vscode' {
 		Idle = 'idle'
 	}
 
+	export type InspectionResult = {
+		location: Location;
+		componentName?: string;
+	};
+
 	export namespace devtools {
+		export function getScreenshot(): Thenable<string | undefined>;
 		export function setStatus(status: DevtoolsStatus): void;
 		export function setIsInspectingHost(isInspecting: boolean): void;
-		export function setLatestPayload(payload: Location | null): void;
+		export function setLatestPayload(payload: InspectionResult | null): void;
 		export const onDidTriggerInspectingHostStart: Event<void>;
 		export const onDidTriggerInspectingHostStop: Event<void>;
+		export const onDidTriggerInspectingClearOverlays: Event<void>;
 	}
 }

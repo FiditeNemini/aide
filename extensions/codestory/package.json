@@ -22,6 +22,7 @@
     "chatVariableResolver",
     "csAuthentication",
     "csevents",
+    "contribEditorContentMenu",
     "defaultChatParticipant",
     "inlineCompletionsAdditions",
     "interactive",
@@ -34,8 +35,11 @@
   ],
   "files": [
     "src/llm/embeddings/models/**/*",
+    "src/tree-sitter.wasm",
     "src/languages/tree-sitter-go.wasm",
     "src/languages/tree-sitter-python.wasm",
+    "src/languages/tree-sitter-tsx.wasm",
+    "src/languages/tree-sitter-typescript.wasm",
     "src/completions/text-processing/treeSitter/wasm/tree-sitter-javascript.wasm",
     "src/completions/text-processing/treeSitter/wasm/tree-sitter-tsx.wasm",
     "src/completions/text-processing/treeSitter/wasm/tree-sitter-typescript.wasm",
@@ -70,9 +74,25 @@
       },
       {
         "command": "codestory.enableDeepReasoning",
-        "title": "deep reasoning"
+        "title": "Enable deep reasoning"
+      },
+      {
+        "command": "codestory.install-vite-plugin",
+        "title": "Add Vite plugin"
       }
     ],
+    "menus": {
+      "editor/content": [
+        {
+          "command": "codestory.install-vite-plugin",
+          "when": "resourceFilename =~ /^vite\\.config\\.(js|ts|mjs|cjs)$/ && devtools.shouldShowAddPlugin",
+          "group": "navigation@-10",
+          "args": [
+            "${resourceDirname}"
+          ]
+        }
+      ]
+    },
     "aideAgents": [
       {
         "id": "aide",
@@ -118,11 +138,6 @@
           "type": "boolean",
           "default": false,
           "description": "If the sidecar-binary is being run on its own, we can set this to true allowing for rapid proto-typing"
-        },
-        "aide.enableInspectWithDevtools": {
-          "type": "boolean",
-          "default": false,
-          "description": "Opt-in for this experimental feature that allows you to point and click on your React component to inspect them"
         },
         "aide.inlineCompletion.triggerMode": {
           "type": "string",

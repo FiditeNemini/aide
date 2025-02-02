@@ -4,9 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as path from 'path';
-const Parser = require('web-tree-sitter');
+import Parser from 'web-tree-sitter';
 
-let TSX_PARSER: any | null = null;
+let TSX_PARSER: Parser | null = null;
 
 export async function initTsxParser(): Promise<void> {
 	if (TSX_PARSER) {
@@ -23,8 +23,6 @@ export async function initTsxParser(): Promise<void> {
 	parser.setLanguage(tsxLang);
 	TSX_PARSER = parser;
 }
-
-
 
 
 export interface TsxNodeInfo {
@@ -55,7 +53,7 @@ export async function findTsxNodeAtLine(
 	const rootNode = tree.rootNode;
 
 	// DFS to locate a node that begins exactly at lineNumber
-	function traverse(node: any): TsxNodeInfo | null {
+	function traverse(node: Parser.SyntaxNode): TsxNodeInfo | null {
 		if (node.startPosition.row === lineNumber) {
 			// Return whatever info you need from the node
 			return {

@@ -634,8 +634,10 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 	}
 
 	private initLayoutState(lifecycleService: ILifecycleService, fileService: IFileService): void {
-		this.stateModel = new LayoutStateModel(this.storageService, this.configurationService, this.contextService, this.parent);
-		this.stateModel.load();
+		this._mainContainerDimension = getClientArea(this.parent);
+
+		this.stateModel = new LayoutStateModel(this.storageService, this.configurationService, this.contextService);
+		this.stateModel.load(this._mainContainerDimension);
 
 		// Both editor and panel should not be hidden on startup
 		if (this.stateModel.getRuntimeValue(LayoutStateKeys.PANEL_HIDDEN) && this.stateModel.getRuntimeValue(LayoutStateKeys.EDITOR_HIDDEN)) {
@@ -738,9 +740,9 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 			}
 		}
 
-		// Auxiliary Panel to restore
+		// Auxiliary View to restore
 		if (this.isVisible(Parts.AUXILIARYBAR_PART)) {
-			const viewContainerToRestore = this.storageService.get(AuxiliaryBarPart.activePanelSettingsKey, StorageScope.WORKSPACE, this.viewDescriptorService.getDefaultViewContainer(ViewContainerLocation.AuxiliaryBar)?.id);
+			const viewContainerToRestore = this.storageService.get(AuxiliaryBarPart.activeViewSettingsKey, StorageScope.WORKSPACE, this.viewDescriptorService.getDefaultViewContainer(ViewContainerLocation.AuxiliaryBar)?.id);
 			if (viewContainerToRestore) {
 				this.state.initialization.views.containerToRestore.auxiliaryBar = viewContainerToRestore;
 			} else {
@@ -1089,7 +1091,7 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		// Restore Auxiliary Bar
 		layoutReadyPromises.push((async () => {
 
-			// Restoring views could mean that panel already
+			// Restoring views could mean that auxbar already
 			// restored, as such we need to test again
 			await restoreDefaultViewsPromise;
 			if (!this.state.initialization.views.containerToRestore.auxiliaryBar) {
@@ -1098,9 +1100,9 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 
 			mark('code/willRestoreAuxiliaryBar');
 
-			const panel = await this.paneCompositeService.openPaneComposite(this.state.initialization.views.containerToRestore.auxiliaryBar, ViewContainerLocation.AuxiliaryBar);
-			if (!panel) {
-				await this.paneCompositeService.openPaneComposite(this.viewDescriptorService.getDefaultViewContainer(ViewContainerLocation.AuxiliaryBar)?.id, ViewContainerLocation.AuxiliaryBar); // fallback to default panel as needed
+			const viewlet = await this.paneCompositeService.openPaneComposite(this.state.initialization.views.containerToRestore.auxiliaryBar, ViewContainerLocation.AuxiliaryBar);
+			if (!viewlet) {
+				await this.paneCompositeService.openPaneComposite(this.viewDescriptorService.getDefaultViewContainer(ViewContainerLocation.AuxiliaryBar)?.id, ViewContainerLocation.AuxiliaryBar); // fallback to default viewlet as needed
 			}
 
 			mark('code/didRestoreAuxiliaryBar');
@@ -1635,6 +1637,26 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 
 			this.stateModel.save(true, true);
 		}));
+
+	}
+
+	addPreview() {
+		// Add preview
+		try {
+			const editorParentElement = this.editorPartView.element.parentElement;
+			if (editorParentElement) {
+				// Should this be append?
+				editorParentElement.prepend(this.previewPartView.element);
+			}
+			this.arrangePreviewOverlay();
+			this.setPreviewHidden(true);
+			this._register(this.editorPartView.onDidContentSizeChange(() => {
+				this.arrangePreviewOverlay();
+			}));
+
+		} catch (error) {
+			console.error(`Could not initialize Aide controls: ${error}`);
+		}
 	}
 
 	layout(): void {
@@ -1651,23 +1673,6 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 			// Layout the grid widget
 			this.workbenchGrid.layout(this._mainContainerDimension.width, this._mainContainerDimension.height);
 			this.initialized = true;
-
-			// Add preview
-			try {
-				const editorParentElement = this.editorPartView.element.parentElement;
-				if (editorParentElement) {
-					// Should this be append?
-					editorParentElement.prepend(this.previewPartView.element);
-				}
-				this.arrangePreviewOverlay();
-				this.setPreviewHidden(true);
-				this._register(this.editorPartView.onDidContentSizeChange(() => {
-					this.arrangePreviewOverlay();
-				}));
-
-			} catch (error) {
-				console.error(`Could not initialize Aide controls: ${error}`);
-			}
 
 			// Emit as event
 			this.handleContainerDidLayout(this.mainContainer, this._mainContainerDimension);
@@ -2002,7 +2007,10 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 
 			if (panelToOpen) {
 				const focus = !skipLayout;
-				this.paneCompositeService.openPaneComposite(panelToOpen, ViewContainerLocation.Panel, focus);
+				const panel = this.paneCompositeService.openPaneComposite(panelToOpen, ViewContainerLocation.Panel, focus);
+				if (!panel) {
+					this.paneCompositeService.openPaneComposite(this.viewDescriptorService.getDefaultViewContainer(ViewContainerLocation.Panel)?.id, ViewContainerLocation.Panel, focus);
+				}
 			}
 		}
 
@@ -2131,19 +2139,22 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 
 		// If auxiliary bar becomes visible, show last active pane composite or default pane composite
 		else if (!hidden && !this.paneCompositeService.getActivePaneComposite(ViewContainerLocation.AuxiliaryBar)) {
-			let panelToOpen: string | undefined = this.paneCompositeService.getLastActivePaneCompositeId(ViewContainerLocation.AuxiliaryBar);
+			let viewletToOpen: string | undefined = this.paneCompositeService.getLastActivePaneCompositeId(ViewContainerLocation.AuxiliaryBar);
 
-			// verify that the panel we try to open has views before we default to it
+			// verify that the viewlet we try to open has views before we default to it
 			// otherwise fall back to any view that has views still refs #111463
-			if (!panelToOpen || !this.hasViews(panelToOpen)) {
-				panelToOpen = this.viewDescriptorService
+			if (!viewletToOpen || !this.hasViews(viewletToOpen)) {
+				viewletToOpen = this.viewDescriptorService
 					.getViewContainersByLocation(ViewContainerLocation.AuxiliaryBar)
 					.find(viewContainer => this.hasViews(viewContainer.id))?.id;
 			}
 
-			if (panelToOpen) {
+			if (viewletToOpen) {
 				const focus = !skipLayout;
-				this.paneCompositeService.openPaneComposite(panelToOpen, ViewContainerLocation.AuxiliaryBar, focus);
+				const viewlet = this.paneCompositeService.openPaneComposite(viewletToOpen, ViewContainerLocation.AuxiliaryBar, focus);
+				if (!viewlet) {
+					this.paneCompositeService.openPaneComposite(this.viewDescriptorService.getDefaultViewContainer(ViewContainerLocation.AuxiliaryBar)?.id, ViewContainerLocation.AuxiliaryBar, focus);
+				}
 			}
 		}
 
@@ -2485,7 +2496,7 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 	}
 
 	private createGridDescriptor(): ISerializedGrid {
-		const { width, height } = this.stateModel.getInitializationValue(LayoutStateKeys.GRID_SIZE);
+		const { width, height } = this._mainContainerDimension!;
 		const sideBarSize = this.stateModel.getInitializationValue(LayoutStateKeys.SIDEBAR_SIZE);
 		const auxiliaryBarPartSize = this.stateModel.getInitializationValue(LayoutStateKeys.AUXILIARYBAR_SIZE);
 		const panelSize = this.stateModel.getInitializationValue(LayoutStateKeys.PANEL_SIZE);
@@ -2699,7 +2710,6 @@ const LayoutStateKeys = {
 	}),
 
 	// Part Sizing
-	GRID_SIZE: new InitializationStateKey('grid.size', StorageScope.PROFILE, StorageTarget.MACHINE, { width: 800, height: 600 }),
 	SIDEBAR_SIZE: new InitializationStateKey<number>('sideBar.size', StorageScope.PROFILE, StorageTarget.MACHINE, 200),
 	AUXILIARYBAR_SIZE: new InitializationStateKey<number>('auxiliaryBar.size', StorageScope.PROFILE, StorageTarget.MACHINE, 200),
 	PANEL_SIZE: new InitializationStateKey<number>('panel.size', StorageScope.PROFILE, StorageTarget.MACHINE, 300),
@@ -2753,8 +2763,7 @@ class LayoutStateModel extends Disposable {
 	constructor(
 		private readonly storageService: IStorageService,
 		private readonly configurationService: IConfigurationService,
-		private readonly contextService: IWorkspaceContextService,
-		private readonly container: HTMLElement
+		private readonly contextService: IWorkspaceContextService
 	) {
 		super();
 
@@ -2790,7 +2799,7 @@ class LayoutStateModel extends Disposable {
 		}
 	}
 
-	load(): void {
+	load(mainContainerDimension: IDimension): void {
 		let key: keyof typeof LayoutStateKeys;
 
 		// Load stored values for all keys
@@ -2809,12 +2818,10 @@ class LayoutStateModel extends Disposable {
 		this.stateCache.set(LayoutStateKeys.SIDEBAR_POSITON.name, positionFromString(this.configurationService.getValue(LegacyWorkbenchLayoutSettings.SIDEBAR_POSITION) ?? 'left'));
 
 		// Set dynamic defaults: part sizing and side bar visibility
-		const workbenchDimensions = getClientArea(this.container);
 		LayoutStateKeys.PANEL_POSITION.defaultValue = positionFromString(this.configurationService.getValue(WorkbenchLayoutSettings.PANEL_POSITION) ?? 'bottom');
-		LayoutStateKeys.GRID_SIZE.defaultValue = { height: workbenchDimensions.height, width: workbenchDimensions.width };
-		LayoutStateKeys.SIDEBAR_SIZE.defaultValue = Math.min(300, workbenchDimensions.width / 4);
-		LayoutStateKeys.AUXILIARYBAR_SIZE.defaultValue = Math.min(300, workbenchDimensions.width / 4);
-		LayoutStateKeys.PANEL_SIZE.defaultValue = (this.stateCache.get(LayoutStateKeys.PANEL_POSITION.name) ?? isHorizontal(LayoutStateKeys.PANEL_POSITION.defaultValue)) ? workbenchDimensions.height / 3 : workbenchDimensions.width / 4;
+		LayoutStateKeys.SIDEBAR_SIZE.defaultValue = Math.min(300, mainContainerDimension.width / 4);
+		LayoutStateKeys.AUXILIARYBAR_SIZE.defaultValue = Math.min(300, mainContainerDimension.width / 4);
+		LayoutStateKeys.PANEL_SIZE.defaultValue = (this.stateCache.get(LayoutStateKeys.PANEL_POSITION.name) ?? isHorizontal(LayoutStateKeys.PANEL_POSITION.defaultValue)) ? mainContainerDimension.height / 3 : mainContainerDimension.width / 4;
 		LayoutStateKeys.SIDEBAR_HIDDEN.defaultValue = this.contextService.getWorkbenchState() === WorkbenchState.EMPTY;
 
 		// Apply all defaults

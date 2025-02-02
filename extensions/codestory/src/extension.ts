@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import { createInlineCompletionItemProvider } from './completions/create-inline-completion-item-provider';
 import { AideAgentSessionProvider } from './completions/providers/aideAgentProvider';
 import { CSEventHandler } from './csEvents/csEventHandler';
-import { ReactDevtoolsManager } from './devtools/react/DevtoolsManager';
+import { isViteConfigFile, ReactDevtoolsManager } from './devtools/react/DevtoolsManager';
 import { getGitCurrentHash, getGitRepoName } from './git/helper';
 import { aideCommands } from './inlineCompletion/commands';
 import { startupStatusBar } from './inlineCompletion/statusBar';
@@ -21,13 +21,16 @@ import { SimpleBrowserManager } from './simpleBrowser/simpleBrowserManager';
 import { loadOrSaveToStorage } from './storage/types';
 import { copySettings, migrateFromVSCodeOSS } from './utilities/copySettings';
 import { killProcessOnPort } from './utilities/killPort';
-import { getRelevantFiles, shouldTrackFile } from './utilities/openTabs';
+import { shouldTrackFile } from './utilities/openTabs';
 import { findPortPosition } from './utilities/port';
 import { checkReadonlyFSMode } from './utilities/readonlyFS';
 import { restartSidecarBinary, setupSidecar } from './utilities/setupSidecarBinary';
 import { sidecarURL, sidecarUseSelfRun } from './utilities/sidecarUrl';
 import { getUniqueId } from './utilities/uniqueId';
 import { ProjectContext } from './utilities/workspaceContext';
+import { installCommandMap, PACKAGE_NAME as COMPONENT_TAGGER_PACKAGE_NAME, PackageManager, transformViteConfig } from './devtools/react/installVitePlugin';
+import { executeTerminalCommand } from './terminal/TerminalManager';
+import { basename, dirname } from 'node:path';
 
 export let SIDECAR_CLIENT: SideCarClient | null = null;
 
@@ -100,14 +103,6 @@ export async function activate(context: vscode.ExtensionContext) {
 	const sidecarClient = new SideCarClient(modelConfiguration);
 	SIDECAR_CLIENT = sidecarClient;
 
-	// we want to send the open tabs here to the sidecar
-	const openTextDocuments = await getRelevantFiles();
-	openTextDocuments.forEach((openTextDocument) => {
-		// not awaiting here so we can keep loading the extension in the background
-		if (shouldTrackFile(openTextDocument.uri)) {
-			sidecarClient.documentOpen(openTextDocument.uri.fsPath, openTextDocument.contents, openTextDocument.language);
-		}
-	});
 	// Setup the current repo representation here
 	const currentRepo = new RepoRef(
 		// We assume the root-path is the one we are interested in
@@ -238,23 +233,6 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	});
 
-	vscode.window.onDidChangeActiveTextEditor(async (editor) => {
-		if (editor) {
-			const activeDocument = editor.document;
-			if (activeDocument) {
-				const activeDocumentUri = activeDocument.uri;
-				if (shouldTrackFile(activeDocumentUri)) {
-					// track that changed document over here
-					await sidecarClient.documentOpen(
-						activeDocumentUri.fsPath,
-						activeDocument.getText(),
-						activeDocument.languageId
-					);
-				}
-			}
-		}
-	});
-
 	// shouldn't all listeners have this?
 	context.subscriptions.push(diagnosticsListener);
 
@@ -294,6 +272,9 @@ export async function activate(context: vscode.ExtensionContext) {
 		reactDevtoolsManager.stopInspectingHost();
 	});
 
+	vscode.devtools.onDidTriggerInspectingClearOverlays(() => {
+		reactDevtoolsManager.inspectingClearOverlays();
+	});
 
 	async function openUrl(url: string) {
 		try {
@@ -301,7 +282,14 @@ export async function activate(context: vscode.ExtensionContext) {
 			const proxyedPort = await reactDevtoolsManager.startOrGetSession(Number(parsedUrl.port));
 			const proxyedUrl = new URL(parsedUrl);
 			proxyedUrl.port = proxyedPort.toString();
-			simpleBrowserManager.show(proxyedUrl.href, { originalUrl: url, inPreview: true });
+
+
+			const sessions: Record<number, number> = {};
+			for (const [port, session] of reactDevtoolsManager.sessions.entries()) {
+				sessions[session.proxyPort!] = port;
+			}
+
+			simpleBrowserManager.show(proxyedUrl.href, { metadata: { sessions }, inPreview: true });
 			// TODO(@g-danna) Make dedicated service to keep these nicely in sync?
 			vscode.commands.executeCommand('workbench.action.showPreview');
 		} catch (err) {
@@ -309,21 +297,16 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	}
 
-	const simpleBrowserManager = new SimpleBrowserManager(context.extensionUri);
+	const simpleBrowserManager = new SimpleBrowserManager(
+		context.extensionUri,
+		() => {
+			reactDevtoolsManager.inspectingClearOverlays();
+		}
+	);
 	context.subscriptions.push(simpleBrowserManager);
 
-	context.subscriptions.push(simpleBrowserManager.onUrlChange(async ({ url }) => {
-
-		const parsed = new URL(url);
-		const portNumber = Number(parsed.port);
-		if (reactDevtoolsManager.sessions.has(portNumber)) {
-			const activeSession = reactDevtoolsManager.sessions.get(portNumber)!;
-			if (activeSession.proxyPort !== undefined) {
-				parsed.port = activeSession.proxyPort.toString();
-			}
-		}
-		openUrl(parsed.href);
-
+	context.subscriptions.push(simpleBrowserManager.onUrlChange(({ url }) => {
+		openUrl(url);
 	}));
 
 	context.subscriptions.push(simpleBrowserManager);
@@ -349,6 +332,175 @@ export async function activate(context: vscode.ExtensionContext) {
 		return false;
 	}));
 
+	const addVitePluginCommand = vscode.commands.registerCommand(
+		'codestory.install-vite-plugin',
+		async (givenViteConfigUri?: vscode.Uri) => {
+			try {
+
+				// Check that we have a workspace at all
+				const workspaceFolders = vscode.workspace.workspaceFolders;
+				if (!workspaceFolders || workspaceFolders.length === 0) {
+					throw new Error('No workspace folder found');
+				}
+
+				// Decide which vite.config file to modify
+				let viteConfigUri = givenViteConfigUri;
+
+				if (!viteConfigUri) {
+					const activeEditor = vscode.window.activeTextEditor;
+					if (
+						activeEditor &&
+						isViteConfigFile(activeEditor.document.uri)
+					) {
+						// Use the currently open file if it's a vite.config
+						viteConfigUri = activeEditor.document.uri;
+					} else {
+						// Otherwise, find all vite.config.* in the workspace
+						const allConfigs = await vscode.workspace.findFiles(
+							'**/vite.config.{ts,js,mjs,cjs}',
+							'**/node_modules/**'
+						);
+						if (allConfigs.length === 0) {
+							throw new Error('No Vite config file found in this workspace');
+						} else if (allConfigs.length === 1) {
+							// (a) If there is only one, offer to use it or manually pick
+							const single = allConfigs[0];
+							const pick = await vscode.window.showQuickPick(
+								[
+									{ label: 'Use the single config found', description: single.fsPath },
+									{ label: 'Manually select from all found configs', description: '' },
+								],
+								{ placeHolder: 'One config found. Which do you want to use?' }
+							);
+							if (!pick) {
+								// User canceled
+								return;
+							}
+							if (pick.label === 'Use the single config found') {
+								viteConfigUri = single;
+							} else {
+								// "Manually select" - in this simplest approach,
+								// we just show a pick of the (only) config in the array.
+								// (You could also do more advanced logic if needed.)
+								const secondPick = await vscode.window.showQuickPick(
+									allConfigs.map((uri) => ({
+										label: basename(uri.fsPath),
+										description: uri.fsPath,
+									})),
+									{ placeHolder: 'Select a Vite config' }
+								);
+								if (!secondPick) {
+									return;
+								}
+								viteConfigUri = allConfigs.find(
+									(uri) => uri.fsPath === secondPick.description
+								);
+							}
+						} else {
+							// (b) If there's more than one, prompt the user
+							// first show them all discovered configs + last fallback
+							const picks = allConfigs.map((uri) => ({
+								label: basename(uri.fsPath),
+								description: uri.fsPath,
+							}));
+							picks.push({
+								label: 'Manually choose from a list',
+								description: '',
+							});
+
+							const pick = await vscode.window.showQuickPick(picks, {
+								placeHolder: 'Multiple Vite configs found. Select one, or pick from the list.',
+							});
+							if (!pick) {
+								return;
+							}
+							if (pick.label === 'Manually choose from a list') {
+								// Show them again in a second pick - or do something more elaborate if needed
+								const secondPick = await vscode.window.showQuickPick(
+									picks.slice(0, -1), // everything except "manually choose"
+									{ placeHolder: 'Select a Vite config' }
+								);
+								if (!secondPick) {
+									return;
+								}
+								viteConfigUri = allConfigs.find(
+									(uri) => basename(uri.fsPath) === secondPick.label
+								);
+							} else {
+								// They've chosen one of the actual config files
+								viteConfigUri = allConfigs.find(
+									(uri) => basename(uri.fsPath) === pick.label
+								);
+							}
+						}
+					}
+				}
+
+				if (!viteConfigUri) {
+					// If we still have no config, abort
+					throw new Error('No valid vite.config file to modify');
+				}
+
+				// 3. Prompt for package manager
+				const packageManagerPicks = [
+					{ label: PackageManager.npm, picked: true },
+					{ label: PackageManager.pnpm },
+					{ label: PackageManager.yarn },
+					{ label: PackageManager.bun },
+				];
+				const chosenPackageManager = await vscode.window.showQuickPick(
+					packageManagerPicks,
+					{ placeHolder: 'Select your package manager…' }
+				);
+				if (!chosenPackageManager) {
+					vscode.window.showInformationMessage(
+						'Plugin not installed - user canceled.'
+					);
+					return;
+				}
+
+				// Install the plugin
+				vscode.window.showInformationMessage(
+					`Installing latest ${COMPONENT_TAGGER_PACKAGE_NAME}`
+				);
+
+
+				const commandCwd = dirname(viteConfigUri.fsPath);
+				await executeTerminalCommand(
+					installCommandMap.get(chosenPackageManager.label)!,
+					commandCwd
+				);
+
+				// Read the config file
+				const viteConfigData = await vscode.workspace.fs.readFile(viteConfigUri);
+				const viteConfigText = Buffer.from(viteConfigData).toString('utf8');
+
+				// Transform the config text
+				const transformed = await transformViteConfig(viteConfigText);
+				if (!transformed) {
+					throw new Error(
+						`Could not parse or transform your ${viteConfigUri.fsPath}`
+					);
+				}
+
+				// Write the transformed text back
+				await vscode.workspace.fs.writeFile(
+					viteConfigUri,
+					Buffer.from(transformed)
+				);
+				vscode.window.showInformationMessage(
+					`Successfully added plugin configuration to: ${viteConfigUri.fsPath}`
+				);
+
+				await vscode.commands.executeCommand('setContext', 'devtools.shouldShowAddPlugin', false);
+				await vscode.commands.executeCommand('editor.action.formatDocument');
+
+			} catch (error: any) {
+				vscode.window.showErrorMessage(`Error: ${error}`);
+			}
+		}
+	);
+	context.subscriptions.push(addVitePluginCommand);
 }
 
 export async function deactivate() {

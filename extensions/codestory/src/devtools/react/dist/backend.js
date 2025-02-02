@@ -1105,7 +1105,7 @@ exports.useSyncExternalStore = function (subscribe, getSnapshot, getServerSnapsh
 exports.useTransition = function () {
   return ReactSharedInternals.H.useTransition();
 };
-exports.version = "19.1.0-experimental-b0928f08-20250115";
+exports.version = "19.1.0-experimental-3bc46151-20250117";
 
 /***/ }),
 
@@ -5827,12 +5827,16 @@ function showOverlay(elements, componentName, agent, hideAfterTimeout) {
 // That is done by the React Native Inspector component.
 
 var iframesListeningTo = new Set();
+var DATA_PATH_ATTRIBUTE = 'cs-data-component-path';
+var DATA_COMPONENT_NAME_ATTRIBUTE = 'cs-data-component-name';
+var DATA_LINE_ATTRIBUTE = 'cs-data-component-line';
 function setupHighlighter(bridge, agent) {
   bridge.addListener('clearHostInstanceHighlight', clearHostInstanceHighlight);
   bridge.addListener('highlightHostInstance', highlightHostInstance);
   bridge.addListener('shutdown', stopInspectingHost);
   bridge.addListener('startInspectingHost', startInspectingHost);
   bridge.addListener('stopInspectingHost', stopInspectingHost);
+  bridge.addListener('inspectingClearOverlays', inspectingClearOverlays);
   function startInspectingHost() {
     registerListenersOnWindow(window);
   }
@@ -5861,6 +5865,9 @@ function setupHighlighter(bridge, agent) {
       }
     });
     iframesListeningTo = new Set();
+  }
+  function inspectingClearOverlays() {
+    hideOverlay();
   }
   function removeListenersOnWindow(window) {
     // This plug-in may run in non-DOM environments (e.g. React Native).
@@ -5967,6 +5974,23 @@ function setupHighlighter(bridge, agent) {
     var id = agent.getIDForHostInstance(node);
     if (id !== null) {
       bridge.send('selectElement', id);
+      if (node.hasAttribute(DATA_PATH_ATTRIBUTE) && node.hasAttribute(DATA_COMPONENT_NAME_ATTRIBUTE) && node.hasAttribute(DATA_LINE_ATTRIBUTE)) {
+        var path = node.getAttribute(DATA_PATH_ATTRIBUTE);
+        var componentName = node.getAttribute(DATA_COMPONENT_NAME_ATTRIBUTE);
+        var lineAttribute = node.getAttribute(DATA_LINE_ATTRIBUTE);
+        if (!path || !componentName || !lineAttribute) {
+          throw new Error('Tagged data not defined');
+        }
+        var line = +lineAttribute;
+        bridge.send('taggedData', {
+          id: id,
+          data: {
+            path: path,
+            componentName: componentName,
+            line: line
+          }
+        });
+      }
     }
   };
   function getEventTarget(event) {
@@ -6654,7 +6678,7 @@ var Agent = /*#__PURE__*/function (_EventEmitter) {
       }
     });
     agent_defineProperty(_this, "getBackendVersion", function () {
-      var version = "6.0.1-9f0668bad6";
+      var version = "6.0.1-f736a28fc";
       if (version) {
         _this._bridge.send('backendVersion', version);
       }

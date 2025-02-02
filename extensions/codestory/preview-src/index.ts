@@ -34,6 +34,7 @@ const input = header.querySelector<HTMLInputElement>('.url-input')!;
 const forwardButton = header.querySelector<HTMLButtonElement>('.forward-button')!;
 const backButton = header.querySelector<HTMLButtonElement>('.back-button')!;
 const reloadButton = header.querySelector<HTMLButtonElement>('.reload-button')!;
+const clearOverlaysButton = header.querySelector<HTMLButtonElement>('.clear-overlays-button')!;
 const openExternalButton = header.querySelector<HTMLButtonElement>('.open-external-button')!;
 
 window.addEventListener('message', (e) => {
@@ -49,6 +50,20 @@ window.addEventListener('message', (e) => {
 	}
 });
 
+function getInputValue(url: URL) {
+	const displayLocation = new URL(url);
+	const port = url.port;
+	const activeSession = settings.sessions[port];
+	if (activeSession) {
+		displayLocation.port = activeSession.toString();
+	}
+
+	if (displayLocation.searchParams.has('vscodeBrowserReqId')) {
+		displayLocation.searchParams.delete('vscodeBrowserReqId');
+	}
+	return displayLocation.href;
+}
+
 onceDocumentLoaded(() => {
 	setInterval(() => {
 		const iframeFocused = document.activeElement?.tagName === 'IFRAME';
@@ -59,14 +74,7 @@ onceDocumentLoaded(() => {
 		window.addEventListener('message', (event) => {
 			if (event.isTrusted && event.data.type === 'location-change') {
 				const newLocation = new URL(event.data.location);
-				const previousUrl = new URL(settings.url);
-				const originalUrl = new URL(settings.originalUrl);
-				if (newLocation.host === previousUrl.host) {
-					originalUrl.pathname = newLocation.pathname;
-					originalUrl.search = newLocation.search;
-					originalUrl.hash = newLocation.hash;
-					input.value = originalUrl.href;
-				}
+				input.value = getInputValue(newLocation);
 			}
 		});
 	});
@@ -84,13 +92,18 @@ onceDocumentLoaded(() => {
 		history.back();
 	});
 
+	clearOverlaysButton.addEventListener('click', () => {
+		vscode.postMessage({
+			type: 'clearOverlays'
+		});
+	});
+
 	openExternalButton.addEventListener('click', () => {
 		vscode.postMessage({
 			type: 'openExternal',
 			url: input.value,
 		});
 	});
-
 
 	reloadButton.addEventListener('click', () => {
 		// This does not seem to trigger what we want
@@ -103,7 +116,7 @@ onceDocumentLoaded(() => {
 	});
 
 	navigateTo(settings.url, true);
-	input.value = settings.originalUrl;
+	input.value = getInputValue(new URL(settings.url));
 
 	toggleFocusLockIndicatorEnabled(settings.focusLockIndicatorEnabled);
 

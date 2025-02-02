@@ -39,10 +39,10 @@ import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { ICompositeTitleLabel } from '../compositePart.js';
 
 export class AuxiliaryBarPart extends AbstractPaneCompositePart {
-	override allowDroppingViews = false;
+	protected override allowDroppingViews = false;
 
-	static readonly activePanelSettingsKey = 'workbench.auxiliarybar.activepanelid';
-	static readonly pinnedPanelsKey = 'workbench.auxiliarybar.pinnedPanels';
+	static readonly activeViewSettingsKey = 'workbench.auxiliarybar.activepanelid';
+	static readonly pinnedViewsKey = 'workbench.auxiliarybar.pinnedPanels';
 	static readonly placeholdeViewContainersKey = 'workbench.auxiliarybar.placeholderPanels';
 	static readonly viewContainersWorkspaceStateKey = 'workbench.auxiliarybar.viewContainersWorkspaceState';
 
@@ -97,7 +97,7 @@ export class AuxiliaryBarPart extends AbstractPaneCompositePart {
 				hasTitle: true,
 				borderWidth: () => (this.getColor(SIDE_BAR_BORDER) || this.getColor(contrastBorder)) ? 1 : 0,
 			},
-			AuxiliaryBarPart.activePanelSettingsKey,
+			AuxiliaryBarPart.activeViewSettingsKey,
 			ActiveAuxiliaryContext.bindTo(contextKeyService),
 			AuxiliaryBarFocusContext.bindTo(contextKeyService),
 			'auxiliarybar',
@@ -158,7 +158,7 @@ export class AuxiliaryBarPart extends AbstractPaneCompositePart {
 		const $this = this;
 		return {
 			partContainerClass: 'auxiliarybar',
-			pinnedViewContainersKey: AuxiliaryBarPart.pinnedPanelsKey,
+			pinnedViewContainersKey: AuxiliaryBarPart.pinnedViewsKey,
 			placeholderViewContainersKey: AuxiliaryBarPart.placeholdeViewContainersKey,
 			viewContainersWorkspaceStateKey: AuxiliaryBarPart.viewContainersWorkspaceStateKey,
 			icon: true,

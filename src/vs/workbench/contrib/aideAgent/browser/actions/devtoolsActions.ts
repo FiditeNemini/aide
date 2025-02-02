@@ -4,12 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Codicon } from '../../../../../base/common/codicons.js';
+import { KeyCode, KeyMod } from '../../../../../base/common/keyCodes.js';
 import { ServicesAccessor } from '../../../../../editor/browser/editorExtensions.js';
 import { localize, localize2 } from '../../../../../nls.js';
 import { Categories } from '../../../../../platform/action/common/actionCommonCategories.js';
 import { Action2, registerAction2, MenuRegistry, MenuId } from '../../../../../platform/actions/common/actions.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { ContextKeyExpr } from '../../../../../platform/contextkey/common/contextkey.js';
+import { KeybindingWeight } from '../../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { PreviewVisibleContext } from '../../../../common/contextkeys.js';
 import { IWorkbenchLayoutService, OverlayedParts, Position } from '../../../../services/layout/browser/layoutService.js';
 import { DevtoolsStatus, IDevtoolsService } from '../../common/devtoolsService.js';
@@ -30,10 +32,10 @@ export class ShowPreviewAction extends Action2 {
 			title: localize2('showPreview', "Show web app preview"),
 			category: Categories.View,
 			icon: Codicon.browser,
-			// menu: [{
-			// 	id: MenuId.PreviewMenu,
-			// 	group: 'navigation',
-			// }]
+			keybinding: {
+				weight: KeybindingWeight.WorkbenchContrib,
+				primary: KeyMod.CtrlCmd | KeyMod.Alt | KeyCode.KeyB
+			},
 		});
 	}
 
@@ -61,10 +63,10 @@ export class TogglePreviewAction extends Action2 {
 			title: localize2('togglePreview', "Toggle web app preview"),
 			category: Categories.View,
 			icon: Codicon.browser,
-			// menu: [{
-			// 	id: MenuId.PreviewMenu,
-			// 	group: 'navigation',
-			// }]
+			keybinding: {
+				weight: KeybindingWeight.WorkbenchContrib,
+				primary: KeyMod.CtrlCmd | KeyMod.Alt | KeyCode.KeyB
+			},
 		});
 	}
 
@@ -88,7 +90,6 @@ export class TogglePreviewAction extends Action2 {
 }
 
 export function registerDevtoolsActions() {
-
 	registerAction2(ShowPreviewAction);
 	registerAction2(TogglePreviewAction);
 

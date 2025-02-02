@@ -76,6 +76,7 @@ export function registerCodeEditActions() {
 
 		run(accessor: ServicesAccessor, ...args: any[]) {
 			const widgetService = accessor.get(IAideAgentWidgetService);
+			const commandService = accessor.get(ICommandService);
 			const sessionId = widgetService.lastFocusedWidget?.viewModel?.sessionId;
 			if (!sessionId) {
 				return;
@@ -85,6 +86,7 @@ export function registerCodeEditActions() {
 			const editingSession = aideAgentCodeEditingService.getExistingCodeEditingSession(sessionId);
 			if (editingSession) {
 				editingSession.reject();
+				commandService.executeCommand(SAVE_FILES_COMMAND_ID);
 			}
 		}
 	});

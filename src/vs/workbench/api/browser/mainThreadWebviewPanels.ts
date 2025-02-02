@@ -326,7 +326,7 @@ export class MainThreadWebviewPanels extends Disposable implements extHostProtoc
 				viewStates[handle] = {
 					visible: topLevelInput === group.activeEditor,
 					active: editorInput === activeEditorInput,
-					inPreview: viewStates[handle].inPreview,
+					inPreview: viewStates[handle]?.inPreview,
 					position: editorGroupToColumn(this._editorGroupService, group.id),
 				};
 			}

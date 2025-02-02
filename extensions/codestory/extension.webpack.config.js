@@ -9,6 +9,9 @@
 
 const withDefaults = require('../shared.webpack.config');
 
+const CopyWebpackPlugin = require('copy-webpack-plugin');
+
+
 module.exports = withDefaults({
 	context: __dirname,
 	resolve: {

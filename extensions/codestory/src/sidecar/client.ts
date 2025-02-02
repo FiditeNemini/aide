@@ -884,36 +884,6 @@ export class SideCarClient {
 		});
 	}
 
-	async documentOpen(
-		filePath: string,
-		fileContent: string,
-		language: string,
-	): Promise<void> {
-		// There might be files which have a .git extension we should not be sending
-		// those to the sidecar
-		if (filePath.endsWith('.git')) {
-			return;
-		}
-		const baseUrl = new URL(this._url);
-		baseUrl.pathname = '/api/inline_completion/document_open';
-		const body = {
-			file_path: filePath,
-			file_content: fileContent,
-			language,
-		};
-		const url = baseUrl.toString();
-		const response = await fetch(url, {
-			method: 'POST',
-			body: JSON.stringify(body),
-			headers: {
-				'Content-Type': 'application/json',
-			},
-		});
-		if (!response.ok) {
-			throw new Error(`Error while opening file: ${response.statusText}`);
-		}
-	}
-
 	async sendDiagnostics(
 		filePath: string,
 		diagnostics: readonly vscode.Diagnostic[]
@@ -1097,6 +1067,7 @@ export class SideCarClient {
 		projectLabels: string[],
 		codebaseSearch: boolean,
 		workosAccessToken: string,
+		isDevtoolsContext: boolean,
 	): AsyncIterableIterator<SideCarAgentEvent> {
 		try {
 			if (agentMode !== vscode.AideAgentMode.Agentic && agentMode !== vscode.AideAgentMode.Plan) {
@@ -1143,6 +1114,7 @@ export class SideCarClient {
 				shell: currentShell,
 				aide_rules: aideRulesContent,
 				reasoning: sidecarAgentUsesReasoning,
+				is_devtools_context: isDevtoolsContext,
 			};
 
 			const asyncIterableResponse = callServerEventStreamingBufferedPOST(url, body);

@@ -139,13 +139,15 @@ export enum SettingMatchType {
 	LanguageTagSettingMatch = 1 << 0,
 	RemoteMatch = 1 << 1,
 	DescriptionOrValueMatch = 1 << 2,
-	KeyMatch = 1 << 3
+	KeyMatch = 1 << 3,
+	KeyIdMatch = 1 << 4,
 }
 
 export interface ISettingMatch {
 	setting: ISetting;
 	matches: IRange[] | null;
 	matchType: SettingMatchType;
+	keyMatchScore: number;
 	score: number;
 }
 
@@ -185,7 +187,7 @@ export interface IPreferencesEditorModel<T> {
 }
 
 export type IGroupFilter = (group: ISettingsGroup) => boolean | null;
-export type ISettingMatcher = (setting: ISetting, group: ISettingsGroup) => { matches: IRange[]; matchType: SettingMatchType; score: number } | null;
+export type ISettingMatcher = (setting: ISetting, group: ISettingsGroup) => { matches: IRange[]; matchType: SettingMatchType; keyMatchScore: number; score: number } | null;
 
 export interface ISettingsEditorModel extends IPreferencesEditorModel<ISetting> {
 	readonly onDidChangeGroups: Event<void>;
