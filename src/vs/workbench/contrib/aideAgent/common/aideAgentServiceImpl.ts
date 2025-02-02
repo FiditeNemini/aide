@@ -819,6 +819,12 @@ export class ChatService extends Disposable implements IAideAgentService {
 		}
 	}
 
+	cancelCurrentRequestForSession(sessionId: string): void {
+		this.trace('cancelCurrentRequestForSession', `sessionId: ${sessionId}`);
+		this._pendingExchanges.get(sessionId)?.cancel();
+		this._pendingExchanges.deleteAndDispose(sessionId);
+	}
+
 	clearSession(sessionId: string): void {
 		this.trace('clearSession', `sessionId: ${sessionId}`);
 		const model = this._sessionModels.get(sessionId);

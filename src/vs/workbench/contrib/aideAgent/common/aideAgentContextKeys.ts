@@ -33,6 +33,8 @@ export const CONTEXT_CHAT_HAS_FILE_ATTACHMENTS = new RawContextKey<boolean>('aid
 
 export const CONTEXT_CHAT_ENABLED = new RawContextKey<boolean>('aideAgentIsEnabled', false, { type: 'boolean', description: localize('chatIsEnabled', "True when chat is enabled because a default chat participant is activated with an implementation.") });
 export const CONTEXT_CHAT_PANEL_PARTICIPANT_REGISTERED = new RawContextKey<boolean>('aideAgentPanelParticipantRegistered', false, { type: 'boolean', description: localize('chatParticipantRegistered', "True when a default chat participant is registered for the panel.") });
+export const CONTEXT_CHAT_CAN_UNDO = new RawContextKey<boolean>('aideAgentEditingCanUndo', false, { type: 'boolean', description: localize('chatEditingCanUndo', "True when it is possible to undo an interaction in the assistant panel.") });
+export const CONTEXT_CHAT_CAN_REDO = new RawContextKey<boolean>('aideAgentEditingCanRedo', false, { type: 'boolean', description: localize('chatEditingCanRedo', "True when it is possible to redo an interaction in the assistant panel.") });
 export const CONTEXT_CHAT_EXTENSION_INVALID = new RawContextKey<boolean>('aideAgentExtensionInvalid', false, { type: 'boolean', description: localize('chatExtensionInvalid', "True when the installed chat extension is invalid and needs to be updated.") });
 export const CONTEXT_CHAT_INPUT_CURSOR_AT_TOP = new RawContextKey<boolean>('aideAgentCursorAtTop', false);
 export const CONTEXT_CHAT_INPUT_HAS_AGENT = new RawContextKey<boolean>('aideAgentInputHasAgent', false);

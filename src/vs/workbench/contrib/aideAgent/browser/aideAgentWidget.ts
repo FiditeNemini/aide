@@ -31,7 +31,6 @@ import { INotificationService } from '../../../../platform/notification/common/n
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { ChatAgentLocation, IAideAgentAgentService, IChatAgentCommand, IChatAgentData, IChatWelcomeMessageContent } from '../common/aideAgentAgents.js';
-import { IAideAgentCodeEditingService } from '../common/aideAgentCodeEditingService.js';
 import { CONTEXT_CHAT_INPUT_HAS_AGENT, CONTEXT_CHAT_IN_PASSTHROUGH_WIDGET, CONTEXT_CHAT_LAST_ITEM_ID, CONTEXT_CHAT_LOCATION, CONTEXT_CHAT_REQUEST_IN_PROGRESS, CONTEXT_CHAT_SESSION_WITH_EDITS, CONTEXT_IN_CHAT_SESSION, CONTEXT_PARTICIPANT_SUPPORTS_MODEL_PICKER, CONTEXT_RESPONSE_FILTERED } from '../common/aideAgentContextKeys.js';
 import { AgentScope, IChatModel, IChatProgressResponseContent, IChatRequestVariableEntry, IChatResponseModel } from '../common/aideAgentModel.js';
 import { ChatRequestAgentPart, IParsedChatRequest, formatChatQuestion } from '../common/aideAgentParserTypes.js';
@@ -215,7 +214,6 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		@IAideAgentService private readonly chatService: IAideAgentService,
 		@IAideAgentAgentService private readonly chatAgentService: IAideAgentAgentService,
 		@IAideAgentWidgetService chatWidgetService: IAideAgentWidgetService,
-		@IAideAgentCodeEditingService private readonly codeEditingService: IAideAgentCodeEditingService,
 		@IContextMenuService private readonly contextMenuService: IContextMenuService,
 		@IAideAgentAccessibilityService private readonly chatAccessibilityService: IAideAgentAccessibilityService,
 		@ILogService private readonly logService: ILogService,
@@ -304,11 +302,6 @@ export class ChatWidget extends Disposable implements IChatWidget {
 
 		this._register(this.chatService.onDidDisposeSession(() => {
 			this.hideEditPreviewWidget();
-		}));
-
-		this._register(this.codeEditingService.onDidComplete(() => {
-			this.hideEditPreviewWidget();
-			this.inputPart.inputEditor.focus();
 		}));
 	}
 
@@ -478,6 +471,8 @@ export class ChatWidget extends Disposable implements IChatWidget {
 							`${isResponseVM(element) && element.renderData ? `_${this.visibleChangeCount}` : ''}` +
 							// Re-render once content references are loaded
 							(isResponseVM(element) ? `_${element.contentReferences.length}` : '') +
+							// Re-render if element becomes hidden due to undo/redo
+							`_${element.shouldBeRemovedOnSend ? '1' : '0'}` +
 							// Rerender request if we got new content references in the response
 							// since this may change how we render the corresponding attachments in the request
 							(isRequestVM(element) && element.contentReferences ? `_${element.contentReferences?.length}` : '');

@@ -183,6 +183,7 @@ export interface IChatTextEdit {
 	uri: URI;
 	edits: TextEdit[];
 	kind: 'textEdit';
+	done?: boolean;
 }
 
 export interface IChatCodeEdit {
@@ -334,7 +335,14 @@ export interface IChatInlineChatCodeAction {
 	action: 'accepted' | 'discarded';
 }
 
-export type ChatUserAction = IChatVoteAction | IChatCopyAction | IChatInsertAction | IChatApplyAction | IChatTerminalAction | IChatCommandAction | IChatFollowupAction | IChatBugReportAction | IChatInlineChatCodeAction;
+export interface IChatEditingSessionAction {
+	kind: 'chatEditingSessionAction';
+	uri: URI;
+	hasRemainingEdits: boolean;
+	outcome: 'accepted' | 'rejected' | 'saved';
+}
+
+export type ChatUserAction = IChatVoteAction | IChatCopyAction | IChatInsertAction | IChatApplyAction | IChatTerminalAction | IChatCommandAction | IChatFollowupAction | IChatBugReportAction | IChatInlineChatCodeAction | IChatEditingSessionAction;
 
 export interface IChatUserActionEvent {
 	action: ChatUserAction;
@@ -459,6 +467,7 @@ export interface IAideAgentService {
 	readonly lastExchangeId: string | undefined;
 	initiateResponse(sessionId: string): Promise<{ responseId: string; callback: (p: IChatProgress) => void; token: CancellationToken }>;
 
+	cancelCurrentRequestForSession(sessionId: string): void;
 	clearSession(sessionId: string): void;
 	addCompleteRequest(sessionId: string, message: IParsedChatRequest | string, variableData: IChatRequestVariableData | undefined, attempt: number | undefined, response: IChatCompleteResponse): void;
 	getHistory(): IChatDetail[];
