@@ -47,7 +47,7 @@ export class CSAccountService extends Disposable implements ICSAccountService {
 
 		const isDevelopment = !this.environmentService.isBuilt || this.environmentService.isExtensionDevelopment;
 		if (isDevelopment) {
-			this._websiteBase = 'http://localhost:3333';
+			this._websiteBase = 'https://staging.aide.dev';
 		} else {
 			this._websiteBase = 'https://aide.dev';
 		}

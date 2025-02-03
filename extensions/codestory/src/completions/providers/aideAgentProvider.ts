@@ -472,7 +472,7 @@ export class AideAgentSessionProvider implements vscode.AideSessionParticipant {
 	 * type, since on the sidecar side we are taking care of streaming the right thing
 	 * depending on the agent mode
 	 */
-	private async streamResponse(event: vscode.AideAgentRequest, sessionId: string, editorUrl: string, workosAccessToken: string) {
+	private async streamResponse(event: vscode.AideAgentRequest, sessionId: string, editorUrl: string, workosAccessToken: string, hasRetried = false): Promise<void> {
 		const prompt = event.prompt;
 		const exchangeIdForEvent = event.exchangeId;
 		const agentMode = event.mode;
@@ -484,35 +484,61 @@ export class AideAgentSessionProvider implements vscode.AideSessionParticipant {
 			errored = true;
 		};
 
-		if (agentMode === vscode.AideAgentMode.Chat) {
-			const responseStream = this.sidecarClient.agentSessionChat(prompt, sessionId, exchangeIdForEvent, editorUrl, agentMode, variables, this.currentRepoRef, this.projectContext.labels, workosAccessToken);
-			await this.reportAgentEventsToChat(sessionId, responseStream, onError);
-		} else if (agentMode === vscode.AideAgentMode.Edit) {
-			// Now lets try to handle the edit event first
-			// there are 2 kinds of edit events:
-			// - anchored and agentic events
-			// if its anchored, then we have the sscope as selection
-			// if its selection scope then its agentic
-			if (event.scope === vscode.AideAgentScope.Selection) {
-				const responseStream = await this.sidecarClient.agentSessionAnchoredEdit(prompt, sessionId, exchangeIdForEvent, editorUrl, agentMode, variables, this.currentRepoRef, this.projectContext.labels, workosAccessToken);
+		try {
+			if (agentMode === vscode.AideAgentMode.Chat) {
+				const responseStream = this.sidecarClient.agentSessionChat(prompt, sessionId, exchangeIdForEvent, editorUrl, agentMode, variables, this.currentRepoRef, this.projectContext.labels, workosAccessToken);
 				await this.reportAgentEventsToChat(sessionId, responseStream, onError);
-			} else {
-				const isWholeCodebase = event.scope === vscode.AideAgentScope.Codebase;
-				const responseStream = await this.sidecarClient.agentSessionPlanStep(prompt, sessionId, exchangeIdForEvent, editorUrl, agentMode, variables, this.currentRepoRef, this.projectContext.labels, isWholeCodebase, workosAccessToken, event.isDevtoolsContext);
+			} else if (agentMode === vscode.AideAgentMode.Edit) {
+				// Now lets try to handle the edit event first
+				// there are 2 kinds of edit events:
+				// - anchored and agentic events
+				// if its anchored, then we have the sscope as selection
+				// if its selection scope then its agentic
+				if (event.scope === vscode.AideAgentScope.Selection) {
+					const responseStream = await this.sidecarClient.agentSessionAnchoredEdit(prompt, sessionId, exchangeIdForEvent, editorUrl, agentMode, variables, this.currentRepoRef, this.projectContext.labels, workosAccessToken);
+					await this.reportAgentEventsToChat(sessionId, responseStream, onError);
+				} else {
+					const isWholeCodebase = event.scope === vscode.AideAgentScope.Codebase;
+					const responseStream = await this.sidecarClient.agentSessionPlanStep(prompt, sessionId, exchangeIdForEvent, editorUrl, agentMode, variables, this.currentRepoRef, this.projectContext.labels, isWholeCodebase, workosAccessToken, event.isDevtoolsContext);
+					await this.reportAgentEventsToChat(sessionId, responseStream, onError);
+				}
+			} else if (agentMode === vscode.AideAgentMode.Plan || agentMode === vscode.AideAgentMode.Agentic) {
+				// For plan generation we have 2 things which can happen:
+				// plan gets generated incrementally or in an instant depending on people using
+				// o1 or not
+				// once we have a step of the plan we should stream it along with the edits of the plan
+				// and keep doing that until we are done completely
+				const responseStream = await this.sidecarClient.agentSessionPlanStep(prompt, sessionId, exchangeIdForEvent, editorUrl, agentMode, variables, this.currentRepoRef, this.projectContext.labels, false, workosAccessToken, event.isDevtoolsContext);
 				await this.reportAgentEventsToChat(sessionId, responseStream, onError);
 			}
-		} else if (agentMode === vscode.AideAgentMode.Plan || agentMode === vscode.AideAgentMode.Agentic) {
-			// For plan generation we have 2 things which can happen:
-			// plan gets generated incrementally or in an instant depending on people using
-			// o1 or not
-			// once we have a step of the plan we should stream it along with the edits of the plan
-			// and keep doing that until we are done completely
-			const responseStream = await this.sidecarClient.agentSessionPlanStep(prompt, sessionId, exchangeIdForEvent, editorUrl, agentMode, variables, this.currentRepoRef, this.projectContext.labels, false, workosAccessToken, event.isDevtoolsContext);
-			await this.reportAgentEventsToChat(sessionId, responseStream, onError);
-		}
-		// This we use to track agent usage - only hit this if we didn't fail
-		if (!errored) {
-			this.csEventHandler.handleNewRequest(event.mode === vscode.AideAgentMode.Agentic ? 'AgenticRequest' : 'ChatRequest');
+			// This we use to track agent usage - only hit this if we didn't fail
+			if (!errored) {
+				this.csEventHandler.handleNewRequest(event.mode === vscode.AideAgentMode.Agentic ? 'AgenticRequest' : 'ChatRequest');
+			}
+		} catch (error) {
+			if (!hasRetried && typeof error?.message === 'string' && error.message.includes('401')) {
+				console.log('Got a 401 error from the Sidecar. Retrying once...');
+				const session = await vscode.csAuthentication.getSession({ hardCheck: true });
+				const newToken = session?.accessToken ?? '';
+				return await this.streamResponse(event, sessionId, editorUrl, newToken, true);
+			}
+
+			// The rest is unchanged: show an error in the chat, stop streaming, etc.
+			const responseStream = this.responseStreamCollection.latestResponseStream
+				?? await this.createNewResponseStream(sessionId);
+			if (!responseStream) {
+				throw error;
+			}
+			responseStream.stream.toolTypeError({
+				message: `${error.message}. Please try again.`,
+			});
+			responseStream.stream.stage({ message: 'Error' });
+
+			// Clean up any open streams
+			const openStreams = this.responseStreamCollection.getAllResponseStreams();
+			for (const stream of openStreams) {
+				this.closeAndRemoveResponseStream(sessionId, stream.exchangeId);
+			}
 		}
 	}
 

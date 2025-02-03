@@ -54,7 +54,7 @@ export class CSAuthenticationService extends Themable implements ICSAuthenticati
 
 		const isDevelopment = !this.environmentService.isBuilt || this.environmentService.isExtensionDevelopment;
 		if (isDevelopment) {
-			this._subscriptionsAPIBase = 'https://staging-api.codestory.ai';
+			this._subscriptionsAPIBase = 'http://localhost:3333'; // @g-danna need to change back to 'https://staging-api.codestory.ai'
 			this._websiteBase = 'https://staging.aide.dev';
 		} else {
 			this._subscriptionsAPIBase = 'https://api.codestory.ai';
@@ -75,39 +75,65 @@ export class CSAuthenticationService extends Themable implements ICSAuthenticati
 		await this.refreshTokens();
 	}
 
+	private readonly MAX_REFRESH_RETRIES = 3;
+
 	async refreshTokens(): Promise<void> {
 		if (!this._session) {
 			return;
 		}
 
-		try {
-			const response = await fetch(`${this._subscriptionsAPIBase}/v1/auth/refresh`, {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-				},
-				body: JSON.stringify({
-					'refresh_token': this._session.refreshToken,
-				}),
-			});
-			if (!response.ok) {
-				this.notificationService.notify(
-					{
+		let attempts = 0;
+		let lastError: unknown;
+
+		while (attempts < this.MAX_REFRESH_RETRIES) {
+			try {
+				const response = await fetch(`${this._subscriptionsAPIBase}/v1/auth/refresh`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						refresh_token: this._session.refreshToken
+					}),
+				});
+
+				if (response.ok) {
+					// Successfully got a new token
+					const data = (await response.json()) as EncodedCSTokenData;
+					await this.getSessionData(this._session.id, data);
+					return;  // Done refreshing
+				} else if (response.status === 401) {
+					// The refresh token is truly invalid or expired
+					this.notificationService.notify({
 						severity: Severity.Error,
-						message: `Failed to authenticate with CodeStory. Please try logging in again.`,
+						message: 'Your CodeStory session has expired. Please sign in again.',
 						priority: NotificationPriority.URGENT,
-					}
-				);
-				await this.deleteSession();
-				throw new Error(`Failed to authenticate with CodeStory. Please try logging in again.`);
+					});
+					await this.deleteSession();
+					throw new Error('Refresh token invalid or expired');
+				} else if (response.status >= 500) {
+					// Likely a transient server error, let's retry
+					lastError = new Error(`Server error ${response.status}, attempt ${attempts + 1}`);
+				} else {
+					// Some other 4XX error - possibly a misconfiguration or something else
+					lastError = new Error(`Unexpected HTTP ${response.status} on refresh, attempt ${attempts + 1}`);
+				}
+			} catch (err) {
+				// Could be network error, DNS, etc.
+				lastError = err;
 			}
 
-			const data = (await response.json()) as EncodedCSTokenData;
-			await this.getSessionData(this._session.id, data);
-		} catch (e: any) {
-			return;
+			attempts++;
+			await delay(1000 * attempts);
 		}
+
+		this.notificationService.notify({
+			severity: Severity.Error,
+			message: `Failed to refresh CodeStory session after ${this.MAX_REFRESH_RETRIES} attempts. Please check your internet or try again later.`,
+		});
+
+		await this.deleteSession();
+		throw lastError;
 	}
+
 
 	async createSession(): Promise<CSAuthenticationSession> {
 		try {
@@ -343,6 +369,11 @@ export class CSAuthenticationService extends Themable implements ICSAuthenticati
 			throw new Error('Failed to fetch user data');
 		}
 	}
+}
+
+
+function delay(ms: number): Promise<void> {
+	return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 registerSingleton(ICSAuthenticationService, CSAuthenticationService, InstantiationType.Eager);
