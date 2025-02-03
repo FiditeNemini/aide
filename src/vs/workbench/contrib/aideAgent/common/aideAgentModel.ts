@@ -16,7 +16,7 @@ import { URI, UriComponents, UriDto, isUriComponents } from '../../../../base/co
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { IOffsetRange, OffsetRange } from '../../../../editor/common/core/offsetRange.js';
 import { IRange } from '../../../../editor/common/core/range.js';
-import { TextEdit, WorkspaceEdit } from '../../../../editor/common/languages.js';
+import { TextEdit } from '../../../../editor/common/languages.js';
 import { localize } from '../../../../nls.js';
 import { IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
@@ -25,7 +25,7 @@ import { ChatAgentLocation, IAideAgentAgentService, IChatAgentCommand, IChatAgen
 import { CONTEXT_CHAT_IS_PLAN_VISIBLE, CONTEXT_CHAT_LAST_EXCHANGE_COMPLETE } from './aideAgentContextKeys.js';
 import { ChatRequestTextPart, IParsedChatRequest, reviveParsedChatRequest } from './aideAgentParserTypes.js';
 import { AideAgentPlanModel, IAideAgentPlanModel } from './aideAgentPlanModel.js';
-import { ChatAgentVoteDirection, ChatAgentVoteDownReason, IAideAgentPlanProgressContent, IAideAgentPlanStep, IAideAgentToolTypeError, IChatAgentMarkdownContentWithVulnerability, IChatCodeCitation, IChatCodeEdit, IChatCommandButton, IChatConfirmation, IChatContentInlineReference, IChatContentReference, IChatFollowup, IChatLocationData, IChatMarkdownContent, IChatProgress, IChatProgressMessage, IChatResponseCodeblockUriPart, IChatResponseProgressFileTreeData, IChatTask, IChatTextEdit, IChatTreeData, IChatUsedContext, IChatWarningMessage, isIUsedContext } from './aideAgentService.js';
+import { ChatAgentVoteDirection, ChatAgentVoteDownReason, IAideAgentPlanProgressContent, IAideAgentPlanStep, IAideAgentToolTypeError, IChatAgentMarkdownContentWithVulnerability, IChatCodeCitation, IChatCommandButton, IChatConfirmation, IChatContentInlineReference, IChatContentReference, IChatFollowup, IChatLocationData, IChatMarkdownContent, IChatProgress, IChatProgressMessage, IChatResponseCodeblockUriPart, IChatResponseProgressFileTreeData, IChatTask, IChatTextEdit, IChatTreeData, IChatUsedContext, IChatWarningMessage, isIUsedContext } from './aideAgentService.js';
 import { IAideAgentTerminalService } from './aideAgentTerminalService.js';
 import { IChatRequestVariableValue } from './aideAgentVariables.js';
 
@@ -503,10 +503,6 @@ export class ChatResponseModel extends Disposable implements IChatResponseModel 
 		}
 	}
 
-	async applyCodeEdit(codeEdit: IChatCodeEdit) {
-		// TODO
-	}
-
 	applyCodeCitation(progress: IChatCodeCitation) {
 		this._codeCitations.push(progress);
 		this._response.addCitation(progress);
@@ -676,7 +672,6 @@ export type IChatChangeEvent =
 	| IChatAddResponseEvent
 	| IChatSetAgentEvent
 	| IChatMoveEvent
-	| IChatCodeEditEvent
 	| IChatStartPlanEvent
 	| IChatSetHiddenEvent;
 
@@ -718,11 +713,6 @@ export interface IChatMoveEvent {
 	kind: 'move';
 	target: URI;
 	range: IRange;
-}
-
-export interface IChatCodeEditEvent {
-	kind: 'codeEdit';
-	edits: WorkspaceEdit;
 }
 
 export interface IChatSetHiddenEvent {
@@ -1145,9 +1135,6 @@ export class ChatModel extends Disposable implements IChatModel {
 			response.applyCodeCitation(progress);
 		} else if (progress.kind === 'move') {
 			this._onDidChange.fire({ kind: 'move', target: progress.uri, range: progress.range });
-		} else if (progress.kind === 'codeEdit') {
-			response.applyCodeEdit(progress);
-			this._onDidChange.fire({ kind: 'codeEdit', edits: progress.edits });
 		} else if (progress.kind === 'planStep') {
 			this.applyPlanStep(progress);
 		} else {

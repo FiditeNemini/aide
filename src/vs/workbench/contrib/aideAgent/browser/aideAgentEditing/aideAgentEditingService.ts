@@ -13,7 +13,6 @@ import { Iterable } from '../../../../../base/common/iterator.js';
 import { Disposable, DisposableStore, IDisposable } from '../../../../../base/common/lifecycle.js';
 import { LinkedList } from '../../../../../base/common/linkedList.js';
 import { ResourceMap } from '../../../../../base/common/map.js';
-import { Schemas } from '../../../../../base/common/network.js';
 import { derived, IObservable, observableValue, observableValueOpts, runOnChange, ValueWithChangeEventFromObservable } from '../../../../../base/common/observable.js';
 import { compare } from '../../../../../base/common/strings.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
@@ -34,9 +33,8 @@ import { IEditorService } from '../../../../services/editor/common/editorService
 import { IExtensionService } from '../../../../services/extensions/common/extensions.js';
 import { ILifecycleService } from '../../../../services/lifecycle/common/lifecycle.js';
 import { IMultiDiffSourceResolver, IMultiDiffSourceResolverService, IResolvedMultiDiffSource, MultiDiffEditorItem } from '../../../multiDiffEditor/browser/multiDiffSourceResolverService.js';
-import { CellUri } from '../../../notebook/common/notebookCommon.js';
 import { ChatAgentLocation, IAideAgentAgentService } from '../../common/aideAgentAgents.js';
-import { CONTEXT_CHAT_CAN_UNDO, CONTEXT_CHAT_CAN_REDO } from '../../common/aideAgentContextKeys.js';
+import { CONTEXT_CHAT_CAN_REDO, CONTEXT_CHAT_CAN_UNDO } from '../../common/aideAgentContextKeys.js';
 import { applyingChatEditsContextKey, applyingChatEditsFailedContextKey, CHAT_EDITING_MULTI_DIFF_SOURCE_RESOLVER_SCHEME, chatEditingAgentSupportsReadonlyReferencesContextKey, chatEditingResourceContextKey, ChatEditingSessionState, decidedChatEditingResourceContextKey, hasAppliedChatEditsContextKey, hasUndecidedChatEditingResourceContextKey, IAideAgentEditingService, IChatEditingSession, IChatEditingSessionStream, IModifiedFileEntry, inChatEditingSessionContextKey, WorkingSetEntryState } from '../../common/aideAgentEditingService.js';
 import { IChatResponseModel, IChatTextEditGroup } from '../../common/aideAgentModel.js';
 import { IAideAgentService } from '../../common/aideAgentService.js';
@@ -288,7 +286,8 @@ export class ChatEditingService extends Disposable implements IAideAgentEditingS
 		const onResponseComplete = (responseModel: IChatResponseModel) => {
 			if (responseModel.result?.errorDetails && !responseModel.result.errorDetails.responseIsIncomplete) {
 				// Roll back everything
-				session.restoreSnapshot(responseModel.requestId);
+				// TODO(@ghostwriternr): Verify this works - if I'm seeing this after the PR is merged, this TODO is no longer relevant.
+				session.restoreSnapshot(responseModel.id);
 				this._applyingChatEditsFailedContextKey.set(true);
 			}
 
@@ -298,13 +297,12 @@ export class ChatEditingService extends Disposable implements IAideAgentEditingS
 			editedFilesExist.clear();
 		};
 
-
 		const handleResponseParts = async (responseModel: IChatResponseModel) => {
 			for (const part of responseModel.response.value) {
 				if (part.kind === 'codeblockUri' || part.kind === 'textEditGroup') {
 					// ensure editor is open asap
 					if (!editedFilesExist.get(part.uri)) {
-						const uri = part.uri.scheme === Schemas.vscodeNotebookCell ? CellUri.parse(part.uri)?.notebook ?? part.uri : part.uri;
+						const uri = part.uri;
 						editedFilesExist.set(part.uri, this._fileService.exists(uri).then((e) => {
 							if (e) {
 								this._editorService.openEditor({ resource: uri, options: { inactive: true, preserveFocus: true, pinned: true } });
@@ -332,7 +330,6 @@ export class ChatEditingService extends Disposable implements IAideAgentEditingS
 					}
 
 					if (first) {
-
 						await editsPromise;
 
 						editsPromise = this._continueEditingSession(session, async (builder, token) => {
@@ -366,20 +363,19 @@ export class ChatEditingService extends Disposable implements IAideAgentEditingS
 			if (e.kind === 'addRequest') {
 				session.createSnapshot(e.request.id);
 				this._applyingChatEditsFailedContextKey.set(false);
-				const responseModel = e.request.response;
-				if (responseModel) {
-					if (responseModel.isComplete) {
+			} else if (e.kind === 'addResponse') {
+				const responseModel = e.response;
+				if (responseModel.isComplete) {
+					await handleResponseParts(responseModel);
+					onResponseComplete(responseModel);
+				} else {
+					const disposable = responseModel.onDidChange(async () => {
 						await handleResponseParts(responseModel);
-						onResponseComplete(responseModel);
-					} else {
-						const disposable = responseModel.onDidChange(async () => {
-							await handleResponseParts(responseModel);
-							if (responseModel.isComplete) {
-								onResponseComplete(responseModel);
-								disposable.dispose();
-							}
-						});
-					}
+						if (responseModel.isComplete) {
+							onResponseComplete(responseModel);
+							disposable.dispose();
+						}
+					});
 				}
 			}
 		}));
