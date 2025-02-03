@@ -80,18 +80,18 @@ export async function applyEdits(
 	const range = new vscode.Range(new vscode.Position(startPosition.line, 0), new vscode.Position(endPosition.line, endPosition.character));
 	const fileUri = vscode.Uri.file(filePath);
 
-	const workspaceEdit = new vscode.WorkspaceEdit();
-	workspaceEdit.replace(fileUri, range, replacedText);
+	const edit = vscode.TextEdit.replace(range, replacedText);
 	iterationEdits.replace(fileUri, range, replacedText);
 	if (request.apply_directly) {
 		// apply the edits to it
+		const workspaceEdit = new vscode.WorkspaceEdit();
+		workspaceEdit.set(fileUri, [edit]);
 		await vscode.workspace.applyEdit(workspaceEdit);
 		// we also want to save the file at this point after applying the edit
 		await vscode.workspace.save(fileUri);
 	} else {
-		await response.codeEdit(workspaceEdit);
+		response.textEdit(fileUri, edit);
 	}
-
 
 	// we calculate how many lines we get after replacing the text
 	// once we make the edit on the range, the new range is presented to us

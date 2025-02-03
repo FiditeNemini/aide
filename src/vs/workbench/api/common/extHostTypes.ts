@@ -4933,13 +4933,6 @@ export enum AideAgentReferenceKind {
 	Code = 2
 }
 
-export class ChatResponseCodeEditPart {
-	edits: vscode.WorkspaceEdit;
-	constructor(edits: vscode.WorkspaceEdit) {
-		this.edits = edits;
-	}
-}
-
 export class AideAgentResponsePlanPart {
 	index: number;
 	description: string | vscode.MarkdownString;

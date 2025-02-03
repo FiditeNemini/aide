@@ -211,14 +211,6 @@ class AideAgentResponseStream {
 					_report(dto);
 					return this;
 				},
-				codeEdit(edits) {
-					throwIfDone(this.codeEdit);
-
-					const part = new extHostTypes.ChatResponseCodeEditPart(edits);
-					const dto = typeConvert.ChatResponseCodeEditPart.from(part);
-					_report(dto);
-					return this;
-				},
 				detectedParticipant(participant, command) {
 					throwIfDone(this.detectedParticipant);
 
@@ -240,7 +232,6 @@ class AideAgentResponseStream {
 
 					if (
 						part instanceof extHostTypes.ChatResponseTextEditPart ||
-						part instanceof extHostTypes.ChatResponseCodeEditPart ||
 						part instanceof extHostTypes.ChatResponseMarkdownWithVulnerabilitiesPart ||
 						part instanceof extHostTypes.ChatResponseDetectedParticipantPart ||
 						part instanceof extHostTypes.ChatResponseWarningPart ||

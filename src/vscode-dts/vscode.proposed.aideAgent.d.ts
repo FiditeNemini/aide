@@ -67,11 +67,6 @@ declare module 'vscode' {
 		readonly isDevtoolsContext: boolean;
 	}
 
-	export class ChatResponseCodeEditPart {
-		edits: WorkspaceEdit;
-		constructor(edits: WorkspaceEdit);
-	}
-
 	export interface AideAgentPlanStepPart {
 		/**
 		 * The index of the step in the plan
@@ -91,10 +86,9 @@ declare module 'vscode' {
 		readonly message: string;
 	}
 
-	export type AideAgentResponsePart = ExtendedChatResponsePart | ChatResponseCodeEditPart;
+	export type AideAgentResponsePart = ExtendedChatResponsePart;
 
 	export interface AideAgentResponseStream extends ChatResponseStream {
-		codeEdit(edits: WorkspaceEdit): void;
 		push(part: AideAgentResponsePart): void;
 		step(step: AideAgentPlanStepPart): void;
 		stage(stage: AideAgentProgressStagePart): void;
@@ -118,7 +112,7 @@ declare module 'vscode' {
 		handleEvent: AideSessionEventHandler;
 	}
 
-	interface AideSessionAgent extends Omit<ChatParticipant, 'requestHandler'> {
+	export interface AideSessionAgent extends Omit<ChatParticipant, 'requestHandler'> {
 		requestHandler: AideSessionEventHandler;
 		readonly initResponse: AideSessionEventSender;
 	}
