@@ -394,8 +394,10 @@ export class ChatEditingModifiedFileEntry extends Disposable implements IModifie
 		// push stack element for the first edit
 		if (this._isFirstEditAfterStartOrSnapshot) {
 			this._isFirstEditAfterStartOrSnapshot = false;
-			const request = this._chatService.getSession(this._telemetryInfo.sessionId)?.getRequests().at(-1);
-			const label = request?.message.text ? localize('chatEditing1', "Chat Edit: '{0}'", request.message.text) : localize('chatEditing2', "Chat Edit");
+			// TODO(@ghostwriternr): Review this again if the static string doesn't cut it
+			// const request = this._chatService.getSession(this._telemetryInfo.sessionId)?.getRequests().at(-1);
+			// const label = request?.message.text ? localize('chatEditing1', "Chat Edit: '{0}'", request.message.text) : localize('chatEditing2', "Chat Edit");
+			const label = localize('chatEditing2', "Chat Edit");
 			this._undoRedoService.pushElement(new SingleModelEditStackElement(label, 'chat.edit', this.doc, null));
 		}
 

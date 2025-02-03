@@ -86,6 +86,7 @@ const forceVerboseLayoutTracing = false
 	;
 
 export interface IChatRendererDelegate {
+	container: HTMLElement;
 	getListLength(): number;
 
 	readonly onDidScroll?: Event<void>;

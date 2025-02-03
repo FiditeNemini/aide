@@ -125,6 +125,7 @@ export class AideAgentPlanWidget extends Disposable {
 		const scopedInstantiationService = this._register(this._register(this.instantiationService.createChild(new ServiceCollection([IContextKeyService, this.contextKeyService]))));
 		const delegate = scopedInstantiationService.createInstance(AideAgentPlanListDelegate);
 		const rendererDelegate: IChatRendererDelegate = {
+			container: listContainer,
 			getListLength: () => this.tree.getNode(null).visibleChildrenCount,
 			onDidScroll: this.onDidScroll,
 		};
