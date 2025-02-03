@@ -64,6 +64,10 @@ export type SubscriptionResponse = {
 	subscriptionEnding?: number;
 };
 
+export type GetSessionOptions = {
+	hardCheck: boolean;
+};
+
 export const statusAllowsAccess = (status: SubscriptionStatus): boolean => {
 	return status === 'free' || status === 'active' || status === 'pending_cancellation';
 };
@@ -84,5 +88,5 @@ export interface ICSAuthenticationService {
 	createSession(): Promise<CSAuthenticationSession>;
 	deleteSession(sessionId: string): Promise<void>;
 	refreshTokens(): Promise<void>;
-	getSession(): Promise<CSAuthenticationSession | undefined>;
+	getSession(options: GetSessionOptions): Promise<CSAuthenticationSession | undefined>;
 }

@@ -97,7 +97,7 @@ export class CSEventHandler implements vscode.CSEventHandler, vscode.Disposable 
 			return;
 		}
 
-		const session = await vscode.csAuthentication.getSession();
+		const session = await vscode.csAuthentication.getSession({ hardCheck: false });
 		if (!session) {
 			console.error('Failed to get authentication session.');
 			return;

@@ -328,8 +328,8 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 		};
 
 		const csAuthentication: typeof vscode.csAuthentication = {
-			getSession() {
-				return extHostCSAuthentication.getSession();
+			getSession(options: vscode.csAuthentication.GetSessionOptions) {
+				return extHostCSAuthentication.getSession(options);
 			},
 			refreshSession() {
 				return extHostCSAuthentication.refreshSession();

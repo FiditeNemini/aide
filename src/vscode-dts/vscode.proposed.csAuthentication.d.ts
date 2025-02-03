@@ -4,18 +4,18 @@
  *--------------------------------------------------------------------------------------------*/
 
 declare module 'vscode' {
-	interface AuthenticatedCSUser {
+	export interface AuthenticatedCSUser {
 		email: string;
 	}
 
-	type SubscriptionStatus =
+	export type SubscriptionStatus =
 		| 'free'
 		| 'pending_activation'
 		| 'active'
 		| 'pending_cancellation'
 		| 'cancelled';
 
-	interface SubscriptionResponse {
+	export interface SubscriptionResponse {
 		status: SubscriptionStatus;
 		subscriptionEnding?: number;
 	}
@@ -38,7 +38,10 @@ declare module 'vscode' {
 	}
 
 	export namespace csAuthentication {
-		export function getSession(): Thenable<CSAuthenticationSession | undefined>;
+		export type GetSessionOptions = {
+			hardCheck: boolean;
+		};
+		export function getSession(options: GetSessionOptions): Thenable<CSAuthenticationSession | undefined>;
 		export function refreshSession(): Thenable<CSAuthenticationSession | undefined>;
 	}
 }

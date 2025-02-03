@@ -47,7 +47,7 @@ export class CSAccountService extends Disposable implements ICSAccountService {
 
 		const isDevelopment = !this.environmentService.isBuilt || this.environmentService.isExtensionDevelopment;
 		if (isDevelopment) {
-			this._websiteBase = 'https://staging.aide.dev';
+			this._websiteBase = 'http://localhost:3333';
 		} else {
 			this._websiteBase = 'https://aide.dev';
 		}
@@ -57,7 +57,7 @@ export class CSAccountService extends Disposable implements ICSAccountService {
 	}
 
 	private async refresh(): Promise<void> {
-		const session = await this.csAuthenticationService.getSession();
+		const session = await this.csAuthenticationService.getSession({ hardCheck: false });
 		if (session) {
 			this.authenticatedSession = session;
 		} else {
@@ -78,7 +78,7 @@ export class CSAccountService extends Disposable implements ICSAccountService {
 	async ensureAuthorized(): Promise<boolean> {
 		const count = this.storageService.getNumber(STORAGE_KEY, StorageScope.PROFILE, 0);
 		try {
-			let csAuthSession = await this.csAuthenticationService.getSession();
+			let csAuthSession = await this.csAuthenticationService.getSession({ hardCheck: false });
 			if (!csAuthSession) {
 				// Show the account card
 				this.toggle();
@@ -133,9 +133,8 @@ export class CSAccountService extends Disposable implements ICSAccountService {
 	private async show(): Promise<void> {
 		const container = this.layoutService.activeContainer;
 		const csAccountCard = this.csAccountCard = dom.append(container, $('.cs-account-card'));
-		if (!this.authenticatedSession) {
-			await this.refresh();
-		}
+
+		await this.refresh();
 
 		if (this.authenticatedSession) {
 			// User is signed in

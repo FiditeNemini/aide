@@ -9,7 +9,7 @@ import { Emitter, Event } from '../../../../base/common/event.js';
 import Severity from '../../../../base/common/severity.js';
 import { URI } from '../../../../base/common/uri.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
-import { CSAuthenticationSession, CSUserProfileResponse, EncodedCSTokenData, ICSAuthenticationService, SubscriptionResponse } from '../../../../platform/codestoryAccount/common/csAccount.js';
+import { CSAuthenticationSession, CSUserProfileResponse, EncodedCSTokenData, GetSessionOptions, ICSAuthenticationService, SubscriptionResponse } from '../../../../platform/codestoryAccount/common/csAccount.js';
 import { CommandsRegistry } from '../../../../platform/commands/common/commands.js';
 import { IEnvironmentService } from '../../../../platform/environment/common/environment.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
@@ -246,7 +246,13 @@ export class CSAuthenticationService extends Themable implements ICSAuthenticati
 		return encodedData;
 	}
 
-	async getSession(): Promise<CSAuthenticationSession | undefined> {
+	async getSession(options: GetSessionOptions): Promise<CSAuthenticationSession | undefined> {
+		const { hardCheck } = options;
+
+		if (hardCheck) {
+			await this.refreshTokens();
+		}
+
 		const rawSession = await this.secretStorageService.get(SESSION_SECRET_KEY);
 		const session: CSAuthenticationSession | undefined = rawSession ? JSON.parse(rawSession) : undefined;
 		if (!session) {

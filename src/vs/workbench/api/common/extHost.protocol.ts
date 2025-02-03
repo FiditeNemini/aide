@@ -30,7 +30,7 @@ import { IModelChangedEvent } from '../../../editor/common/model/mirrorTextModel
 import { IAccessibilityInformation } from '../../../platform/accessibility/common/accessibility.js';
 import { ILocalizedString } from '../../../platform/action/common/action.js';
 import { IModelSelectionSettings, IModelSelectionValidationResponse } from '../../../platform/aiModel/common/aiModels.js';
-import { CSAuthenticationSession } from '../../../platform/codestoryAccount/common/csAccount.js';
+import { CSAuthenticationSession, GetSessionOptions } from '../../../platform/codestoryAccount/common/csAccount.js';
 import { ConfigurationTarget, IConfigurationChange, IConfigurationData, IConfigurationOverrides } from '../../../platform/configuration/common/configuration.js';
 import { ConfigurationScope } from '../../../platform/configuration/common/configurationRegistry.js';
 import { IExtensionIdWithVersion } from '../../../platform/extensionManagement/common/extensionStorage.js';
@@ -181,7 +181,7 @@ export interface MainThreadAuthenticationShape extends IDisposable {
 }
 
 export interface MainThreadCSAuthenticationShape extends IDisposable {
-	$getSession(): Promise<CSAuthenticationSession | undefined>;
+	$getSession(getSessionOptions: GetSessionOptions): Promise<CSAuthenticationSession | undefined>;
 	$refreshSession(): Promise<CSAuthenticationSession | undefined>;
 }
 

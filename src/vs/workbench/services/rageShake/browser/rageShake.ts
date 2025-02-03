@@ -203,7 +203,7 @@ export class RageShakeService extends Disposable implements IRageShakeService {
 			'Content-Type': 'application/json',
 		};
 
-		const session = await this.csAuthenticationService.getSession();
+		const session = await this.csAuthenticationService.getSession({ hardCheck: false });
 		if (session) {
 			headers.Authorization = `Bearer ${session.accessToken}`;
 		}
