@@ -144,7 +144,7 @@ export class ChatEditingModifiedFileEntry extends Disposable implements IModifie
 	readonly createdInRequestId: string | undefined;
 
 	get lastModifyingRequestId() {
-		return this._telemetryInfo.requestId;
+		return this._telemetryInfo.exchangeId;
 	}
 
 	private readonly _diffTrimWhitespace: IObservable<boolean>;
@@ -170,7 +170,7 @@ export class ChatEditingModifiedFileEntry extends Disposable implements IModifie
 	) {
 		super();
 		if (kind === ChatEditKind.Created) {
-			this.createdInRequestId = this._telemetryInfo.requestId;
+			this.createdInRequestId = this._telemetryInfo.exchangeId;
 		}
 		this.docFileEditorModel = this._register(resourceRef).object as IResolvedTextFileEditorModel;
 		this.doc = resourceRef.object.textEditorModel;
@@ -552,7 +552,7 @@ export class ChatEditingModifiedFileEntry extends Disposable implements IModifie
 			return;
 		}
 
-		if (this.createdInRequestId === this._telemetryInfo.requestId) {
+		if (this.createdInRequestId === this._telemetryInfo.exchangeId) {
 			await this.docFileEditorModel.revert({ soft: true });
 			await this._fileService.del(this.modifiedURI);
 			this._onDidDelete.fire();
@@ -592,7 +592,7 @@ export class ChatEditingModifiedFileEntry extends Disposable implements IModifie
 			agentId: this._telemetryInfo.agentId,
 			command: this._telemetryInfo.command,
 			sessionId: this._telemetryInfo.sessionId,
-			requestId: this._telemetryInfo.requestId,
+			requestId: this._telemetryInfo.exchangeId,
 			result: this._telemetryInfo.result
 		});
 	}
@@ -602,7 +602,7 @@ export interface IModifiedEntryTelemetryInfo {
 	readonly agentId: string | undefined;
 	readonly command: string | undefined;
 	readonly sessionId: string;
-	readonly requestId: string;
+	readonly exchangeId: string;
 	readonly result: IChatAgentResult | undefined;
 }
 

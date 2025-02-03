@@ -254,15 +254,10 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		this.agentSupportsModelPicker = CONTEXT_PARTICIPANT_SUPPORTS_MODEL_PICKER.bindTo(contextKeyService);
 		this.requestInProgress = CONTEXT_CHAT_REQUEST_IN_PROGRESS.bindTo(contextKeyService);
 
-		this._register((chatWidgetService as ChatWidgetService).register(this));
-
 		this._codeBlockModelCollection = this._register(instantiationService.createInstance(CodeBlockModelCollection));
 
-
 		const viewModelObs = observableFromEvent(this, this.onDidChangeViewModel, () => this.viewModel);
-
 		this._register(autorunWithStore((r, store) => {
-
 			const viewModel = viewModelObs.read(r);
 			const sessions = chatEditingService.editingSessionsObs.read(r);
 

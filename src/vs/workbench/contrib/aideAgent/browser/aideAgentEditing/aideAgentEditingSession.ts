@@ -707,7 +707,7 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 			get agentId() { return responseModel.agent?.id; }
 			get command() { return responseModel.slashCommand?.name; }
 			get sessionId() { return responseModel.session.sessionId; }
-			get requestId() { return responseModel.requestId; }
+			get exchangeId() { return responseModel.id; }
 			get result() { return responseModel.result; }
 		};
 		const entry = await this._getOrCreateModifiedFileEntry(resource, telemetryInfo);
@@ -732,7 +732,7 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 	private async _getOrCreateModifiedFileEntry(resource: URI, responseModel: IModifiedEntryTelemetryInfo): Promise<ChatEditingModifiedFileEntry> {
 		const existingEntry = this._entriesObs.get().find(e => isEqual(e.modifiedURI, resource));
 		if (existingEntry) {
-			if (responseModel.requestId !== existingEntry.telemetryInfo.requestId) {
+			if (responseModel.exchangeId !== existingEntry.telemetryInfo.exchangeId) {
 				existingEntry.updateTelemetryInfo(responseModel);
 			}
 			return existingEntry;
@@ -857,7 +857,7 @@ class ChatEditingSessionStorage {
 				originalToCurrentEdit: OffsetEdit.fromJson(entry.originalToCurrentEdit),
 				state: entry.state,
 				snapshotUri: URI.parse(entry.snapshotUri),
-				telemetryInfo: { requestId: entry.telemetryInfo.requestId, agentId: entry.telemetryInfo.agentId, command: entry.telemetryInfo.command, sessionId: this.chatSessionId, result: undefined }
+				telemetryInfo: { exchangeId: entry.telemetryInfo.requestId, agentId: entry.telemetryInfo.agentId, command: entry.telemetryInfo.command, sessionId: this.chatSessionId, result: undefined }
 			} satisfies ISnapshotEntry;
 		};
 		try {
@@ -947,7 +947,7 @@ class ChatEditingSessionStorage {
 				originalToCurrentEdit: entry.originalToCurrentEdit.edits.map(edit => ({ pos: edit.replaceRange.start, len: edit.replaceRange.length, txt: edit.newText } satisfies ISingleOffsetEdit)),
 				state: entry.state,
 				snapshotUri: entry.snapshotUri.toString(),
-				telemetryInfo: { requestId: entry.telemetryInfo.requestId, agentId: entry.telemetryInfo.agentId, command: entry.telemetryInfo.command }
+				telemetryInfo: { requestId: entry.telemetryInfo.exchangeId, agentId: entry.telemetryInfo.agentId, command: entry.telemetryInfo.command }
 			} satisfies ISnapshotEntryDTO;
 		};
 

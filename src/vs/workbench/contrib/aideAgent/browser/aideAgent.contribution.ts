@@ -53,6 +53,7 @@ import { registerChatTitleActions } from './actions/aideAgentTitleActions.js';
 import { registerDevtoolsActions } from './actions/devtoolsActions.js';
 import { IAideAgentAccessibilityService, IAideAgentCodeBlockContextProviderService, IAideAgentWidgetService } from './aideAgent.js';
 import { AideAgentAccessibilityService } from './aideAgentAccessibilityService.js';
+import { ChatInputBoxContentProvider } from './aideAgentEdinputInputContentProvider.js';
 import { ChatEditingService } from './aideAgentEditing/aideAgentEditingService.js';
 import { ChatEditor, IChatEditorOptions } from './aideAgentEditor.js';
 import { ChatEditorInput, ChatEditorInputSerializer } from './aideAgentEditorInput.js';
@@ -173,6 +174,8 @@ class ChatResolverContribution extends Disposable {
 
 AccessibleViewRegistry.register(new ChatResponseAccessibleView());
 AccessibleViewRegistry.register(new PanelChatAccessibilityHelp());
+
+registerEditorFeature(ChatInputBoxContentProvider);
 
 class ChatSlashStaticSlashCommandsContribution extends Disposable {
 
