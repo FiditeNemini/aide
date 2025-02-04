@@ -322,7 +322,7 @@ class ChatEditorOverlayWidget implements IOverlayWidget {
 
 export class ChatEditorOverlayController implements IEditorContribution {
 
-	static readonly ID = 'editor.contrib.chatEditorOverlayController';
+	static readonly ID = 'editor.contrib.aideAgentEditorOverlayController';
 
 	static get(editor: ICodeEditor): ChatEditorOverlayController | undefined {
 		return editor.getContribution<ChatEditorOverlayController>(ChatEditorOverlayController.ID) ?? undefined;

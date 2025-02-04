@@ -181,6 +181,9 @@ export class ChatViewPane extends ViewPane {
 					autoScroll: true,
 					supportsFileReferences: true,
 					editorOverflowWidgetsDomNode: editorOverflowNode,
+					rendererOptions: {
+						renderTextEditsAsSummary: () => true,
+					}
 				},
 				{
 					listForeground: SIDE_BAR_FOREGROUND,

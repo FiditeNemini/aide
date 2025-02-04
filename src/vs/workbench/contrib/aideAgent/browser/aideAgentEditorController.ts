@@ -45,7 +45,7 @@ export const ctxReviewModeEnabled = new RawContextKey<boolean>('aideAgent.ctxRev
 
 export class ChatEditorController extends Disposable implements IEditorContribution {
 
-	public static readonly ID = 'editor.contrib.chatEditorController';
+	public static readonly ID = 'editor.contrib.aideAgentEditorController';
 
 	private static _diffLineDecorationData = ModelDecorationOptions.register({ description: 'diff-line-decoration' });
 

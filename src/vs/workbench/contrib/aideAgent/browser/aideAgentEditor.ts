@@ -66,7 +66,12 @@ export class ChatEditor extends EditorPane {
 				ChatWidget,
 				ChatAgentLocation.Panel,
 				undefined,
-				{ supportsFileReferences: true },
+				{
+					supportsFileReferences: true,
+					rendererOptions: {
+						renderTextEditsAsSummary: () => true
+					}
+				},
 				{
 					listForeground: editorForeground,
 					listBackground: editorBackground,

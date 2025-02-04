@@ -7,6 +7,7 @@ import { MarkdownString, isMarkdownString } from '../../../../base/common/htmlCo
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { Schemas } from '../../../../base/common/network.js';
 import { isMacintosh } from '../../../../base/common/platform.js';
+import { EditorContributionInstantiation, registerEditorContribution } from '../../../../editor/browser/editorExtensions.js';
 import { registerEditorFeature } from '../../../../editor/common/editorFeatures.js';
 import * as nls from '../../../../nls.js';
 import { AccessibleViewRegistry } from '../../../../platform/accessibility/browser/accessibleViewRegistry.js';
@@ -56,7 +57,9 @@ import { AideAgentAccessibilityService } from './aideAgentAccessibilityService.j
 import { ChatInputBoxContentProvider } from './aideAgentEdinputInputContentProvider.js';
 import { ChatEditingService } from './aideAgentEditing/aideAgentEditingService.js';
 import { ChatEditor, IChatEditorOptions } from './aideAgentEditor.js';
+import { ChatEditorController } from './aideAgentEditorController.js';
 import { ChatEditorInput, ChatEditorInputSerializer } from './aideAgentEditorInput.js';
+import { ChatEditorOverlayController } from './aideAgentEditorOverlay.js';
 import { AideAgentFloatingWidgetService, IAideAgentFloatingWidgetService } from './aideAgentFloatingWidgetService.js';
 import { agentSlashCommandToMarkdown, agentToMarkdown } from './aideAgentMarkdownDecorationsRenderer.js';
 import { ChatCompatibilityNotifier, ChatExtensionPointHandler } from './aideAgentParticipantContributions.js';
@@ -289,6 +292,8 @@ registerAideAgentFloatingWidgetActions();
 registerDevtoolsActions();
 
 registerEditorFeature(ChatPasteProvidersFeature);
+registerEditorContribution(ChatEditorOverlayController.ID, ChatEditorOverlayController, EditorContributionInstantiation.Lazy);
+registerEditorContribution(ChatEditorController.ID, ChatEditorController, EditorContributionInstantiation.Eventually);
 
 registerSingleton(IAideAgentService, ChatService, InstantiationType.Delayed);
 registerSingleton(IAideAgentWidgetService, ChatWidgetService, InstantiationType.Delayed);
