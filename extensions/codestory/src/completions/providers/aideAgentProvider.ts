@@ -445,7 +445,7 @@ export class AideAgentSessionProvider implements vscode.AideSessionParticipant {
 			return;
 		}
 
-		const session = await vscode.csAuthentication.getSession({ hardCheck: true });
+		const session = await vscode.csAuthentication.getSession({ hardCheck: false });
 		const email = session?.account.email ?? '';
 
 		// accessToken required for sidecar requests (through codestory provider)

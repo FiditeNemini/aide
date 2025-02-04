@@ -99,6 +99,7 @@ export class CSAuthenticationService extends Themable implements ICSAuthenticati
 					// Successfully got a new token
 					const data = (await response.json()) as EncodedCSTokenData;
 					await this.getSessionData(this._session.id, data);
+					this.scheduleRefresh(data.access_token);
 					return;  // Done refreshing
 				} else if (response.status === 401) {
 					// The refresh token is truly invalid or expired
@@ -130,10 +131,30 @@ export class CSAuthenticationService extends Themable implements ICSAuthenticati
 			message: `Failed to refresh CodeStory session after ${this.MAX_REFRESH_RETRIES} attempts. Please check your internet or try again later.`,
 		});
 
-		await this.deleteSession();
+		// await this.deleteSession();
 		throw lastError;
 	}
 
+	private scheduleRefresh(
+		token: string,
+	) {
+		try {
+			const payload = decodeJwtPayload(token);
+			const expirationMs = payload.exp * 1000; // "exp" in JWT is in seconds since Unix epoch
+			const nowMs = Date.now();
+			const msUntilExpiry = expirationMs - nowMs;
+			const refreshDelay = msUntilExpiry - 30_000; // We want to refresh 30s before official expiration
+			const finalDelay = Math.max(0, refreshDelay); // In case the token is nearly or already expired, schedule immediately
+			return setTimeout(() => {
+				this.refreshTokens();
+			}, finalDelay);
+
+		} catch (error) {
+			console.error('Error scheduling token refresh:', error);
+			// If decoding fails, refresh immediately (?)
+			return setTimeout(() => this.refreshTokens(), 0);
+		}
+	}
 
 	async createSession(): Promise<CSAuthenticationSession> {
 		try {
@@ -375,5 +396,16 @@ export class CSAuthenticationService extends Themable implements ICSAuthenticati
 function delay(ms: number): Promise<void> {
 	return new Promise(resolve => setTimeout(resolve, ms));
 }
+
+function decodeJwtPayload(token: string): Record<string, any> {
+	const [, payloadPart] = token.split('.');
+	if (!payloadPart) {
+		throw new Error('Invalid JWT format');
+	}
+	const base64Payload = payloadPart.replace(/-/g, '+').replace(/_/g, '/');
+	const decodedJson = decodeBase64(base64Payload).toString();
+	return JSON.parse(decodedJson);
+}
+
 
 registerSingleton(ICSAuthenticationService, CSAuthenticationService, InstantiationType.Eager);
