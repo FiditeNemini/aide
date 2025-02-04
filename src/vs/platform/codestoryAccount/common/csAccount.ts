@@ -77,6 +77,7 @@ export interface ICSAccountService {
 	readonly _serviceBrand: undefined;
 
 	toggle(): void;
+	isVisible: boolean;
 	ensureAuthorized(): Promise<boolean>;
 }
 
