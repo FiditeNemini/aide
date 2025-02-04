@@ -143,7 +143,7 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 		this._diffEditorPool = this._register(this.instantiationService.createInstance(DiffEditorPool, editorOptions, delegate, overflowWidgetsDomNode));
 		this._editPreviewEditorPool = this._register(this.instantiationService.createInstance(EditPreviewEditorPool, editorOptions, delegate, overflowWidgetsDomNode));
 		this._treePool = this._register(this.instantiationService.createInstance(TreePool, this._onDidChangeVisibility.event));
-		this._contentReferencesListPool = this._register(this.instantiationService.createInstance(CollapsibleListPool, this._onDidChangeVisibility.event));
+		this._contentReferencesListPool = this._register(this.instantiationService.createInstance(CollapsibleListPool, this._onDidChangeVisibility.event, undefined));
 
 		this._register(this.instantiationService.createInstance(ChatCodeBlockContentProvider));
 	}
@@ -448,7 +448,7 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 			value.forEach((data, index) => {
 				const context: IChatContentPartRenderContext = {
 					element,
-					index,
+					contentIndex: index,
 					content: value,
 					preceedingContentParts: parts,
 				};
@@ -556,7 +556,7 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 				element,
 				content: contentForThisTurn,
 				preceedingContentParts,
-				index
+				contentIndex: index
 			};
 			const newPart = this.renderChatContentPart(partToRender, templateData, context);
 			if (newPart) {
@@ -689,7 +689,7 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 	}
 
 	private renderContentReferencesListData(references: IChatReferences, labelOverride: string | undefined, context: IChatContentPartRenderContext, templateData: IChatListItemTemplate): ChatCollapsibleListContentPart {
-		const referencesPart = this.instantiationService.createInstance(ChatCollapsibleListContentPart, references.references, labelOverride, context.element as IChatResponseViewModel, this._contentReferencesListPool);
+		const referencesPart = this.instantiationService.createInstance(ChatCollapsibleListContentPart, references.references, labelOverride, context, this._contentReferencesListPool);
 		referencesPart.addDisposable(referencesPart.onDidChangeHeight(() => {
 			this.updateItemHeight(templateData);
 		}));

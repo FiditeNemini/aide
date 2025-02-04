@@ -59,7 +59,7 @@ class ChatEditorOverlayWidget implements IOverlayWidget {
 		toolbarNode.classList.add('chat-editor-overlay-toolbar');
 		this._domNode.appendChild(toolbarNode);
 
-		this._toolbar = _instaService.createInstance(MenuWorkbenchToolBar, toolbarNode, MenuId.ChatEditingEditorContent, {
+		this._toolbar = _instaService.createInstance(MenuWorkbenchToolBar, toolbarNode, MenuId.AideAgentEditingEditorContent, {
 			telemetrySource: 'chatEditor.overlayToolbar',
 			hiddenItemStrategy: HiddenItemStrategy.Ignore,
 			toolbarOptions: {

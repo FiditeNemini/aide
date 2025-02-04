@@ -254,7 +254,10 @@ export class MenuId {
 	static readonly AideAgentInlineSymbolAnchorContext = new MenuId('AideAgentInlineSymbolAnchorContext');
 	// TODO(@ghostwriternr): This one isn't currently actually initialised anywhere
 	static readonly AideAgentInputSymbolAttachmentContext = new MenuId('AideAgentInputSymbolAttachmentContext');
-	static readonly AideAgentEditPreviewWidget = new MenuId('AideAgentEditPreviewWidget');
+	static readonly AideAgentEditingWidgetToolbar = new MenuId('AideAgentEditingWidgetToolbar');
+	static readonly AideAgentEditingEditorContent = new MenuId('AideAgentEditingEditorContent');
+	static readonly AideAgentEditingEditorHunk = new MenuId('AideAgentEditingEditorHunk');
+	static readonly AideAgentEditingWidgetModifiedFilesToolbar = new MenuId('AideAgentEditingWidgetModifiedFilesToolbar');
 	static readonly AccessibleView = new MenuId('AccessibleView');
 	static readonly MultiDiffEditorFileToolbar = new MenuId('MultiDiffEditorFileToolbar');
 	static readonly DiffEditorHunkToolbar = new MenuId('DiffEditorHunkToolbar');

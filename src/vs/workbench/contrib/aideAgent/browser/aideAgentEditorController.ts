@@ -708,8 +708,8 @@ class DiffHunkWidget implements IOverlayWidget {
 		this._domNode = document.createElement('div');
 		this._domNode.className = 'chat-diff-change-content-widget';
 
-		const toolbar = instaService.createInstance(MenuWorkbenchToolBar, this._domNode, MenuId.ChatEditingEditorHunk, {
-			telemetrySource: 'chatEditingEditorHunk',
+		const toolbar = instaService.createInstance(MenuWorkbenchToolBar, this._domNode, MenuId.AideAgentEditingEditorHunk, {
+			telemetrySource: 'aideAgentEditingEditorHunk',
 			hiddenItemStrategy: HiddenItemStrategy.NoHide,
 			toolbarOptions: { primaryGroup: () => true, },
 			menuOptions: {

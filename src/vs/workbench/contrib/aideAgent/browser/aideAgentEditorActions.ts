@@ -43,7 +43,7 @@ abstract class NavigateAction extends Action2 {
 			},
 			f1: true,
 			menu: {
-				id: MenuId.ChatEditingEditorContent,
+				id: MenuId.AideAgentEditingEditorContent,
 				group: 'navigate',
 				order: !next ? 2 : 3,
 				when: ctxReviewModeEnabled
@@ -145,7 +145,7 @@ abstract class AcceptDiscardAction extends Action2 {
 					: KeyMod.CtrlCmd | KeyCode.Backspace
 			},
 			menu: {
-				id: MenuId.ChatEditingEditorContent,
+				id: MenuId.AideAgentEditingEditorContent,
 				group: 'a_resolve',
 				order: accept ? 0 : 1,
 				when: !accept ? ctxReviewModeEnabled : undefined
@@ -219,7 +219,7 @@ class RejectHunkAction extends EditorAction2 {
 				primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Backspace
 			},
 			menu: {
-				id: MenuId.ChatEditingEditorHunk,
+				id: MenuId.AideAgentEditingEditorHunk,
 				order: 1
 			}
 		});
@@ -245,7 +245,7 @@ class AcceptHunkAction extends EditorAction2 {
 				primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Enter
 			},
 			menu: {
-				id: MenuId.ChatEditingEditorHunk,
+				id: MenuId.AideAgentEditingEditorHunk,
 				order: 0
 			}
 		});
@@ -274,10 +274,10 @@ class OpenDiffAction extends EditorAction2 {
 				primary: KeyMod.Alt | KeyMod.Shift | KeyCode.F7,
 			},
 			menu: [{
-				id: MenuId.ChatEditingEditorHunk,
+				id: MenuId.AideAgentEditingEditorHunk,
 				order: 10
 			}, {
-				id: MenuId.ChatEditingEditorContent,
+				id: MenuId.AideAgentEditingEditorContent,
 				group: 'a_resolve',
 				order: 2,
 				when: ctxReviewModeEnabled
@@ -297,7 +297,7 @@ export class ReviewChangesAction extends EditorAction2 {
 			id: 'aideAgentEditor.action.reviewChanges',
 			title: localize2('review', "Review"),
 			menu: [{
-				id: MenuId.ChatEditingEditorContent,
+				id: MenuId.AideAgentEditingEditorContent,
 				group: 'a_resolve',
 				order: 3,
 				when: ctxReviewModeEnabled.negate(),
@@ -328,7 +328,7 @@ export function registerChatEditorActions() {
 	registerAction2(RejectHunkAction);
 	registerAction2(OpenDiffAction);
 
-	MenuRegistry.appendMenuItem(MenuId.ChatEditingEditorContent, {
+	MenuRegistry.appendMenuItem(MenuId.AideAgentEditingEditorContent, {
 		command: {
 			id: navigationBearingFakeActionId,
 			title: localize('label', "Navigation Status"),

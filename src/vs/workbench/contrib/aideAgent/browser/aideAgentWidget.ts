@@ -39,7 +39,7 @@ import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { ChatAgentLocation, IAideAgentAgentService, IChatAgentCommand, IChatAgentData, IChatWelcomeMessageContent } from '../common/aideAgentAgents.js';
 import { CONTEXT_CHAT_INPUT_HAS_AGENT, CONTEXT_CHAT_IN_PASSTHROUGH_WIDGET, CONTEXT_CHAT_LAST_ITEM_ID, CONTEXT_CHAT_LOCATION, CONTEXT_CHAT_REQUEST_IN_PROGRESS, CONTEXT_IN_CHAT_SESSION, CONTEXT_PARTICIPANT_SUPPORTS_MODEL_PICKER, CONTEXT_RESPONSE_FILTERED } from '../common/aideAgentContextKeys.js';
 import { IAideAgentEditingService, IChatEditingSession } from '../common/aideAgentEditingService.js';
-import { AgentScope, IChatModel, IChatProgressResponseContent, IChatRequestVariableEntry, IChatResponseModel } from '../common/aideAgentModel.js';
+import { AgentScope, IChatModel, IChatRequestVariableEntry, IChatResponseModel } from '../common/aideAgentModel.js';
 import { ChatRequestAgentPart, IParsedChatRequest, formatChatQuestion } from '../common/aideAgentParserTypes.js';
 import { ChatRequestParser } from '../common/aideAgentRequestParser.js';
 import { IAideAgentService, IChatLocationData } from '../common/aideAgentService.js';
@@ -49,7 +49,6 @@ import { CodeBlockModelCollection } from '../common/codeBlockModelCollection.js'
 import { ChatTreeItem, IAideAgentAccessibilityService, IAideAgentWidgetService, IChatCodeBlockInfo, IChatFileTreeInfo, IChatListItemRendererOptions, IChatWidget, IChatWidgetViewContext, IChatWidgetViewOptions, showChatView } from './aideAgent.js';
 import { ChatAccessibilityProvider } from './aideAgentAccessibilityProvider.js';
 import { AideAgentAttachmentModel } from './aideAgentAttachmentModel.js';
-import { AideAgentEditPreviewWidget } from './aideAgentEditPreviewWidget.js';
 import { ChatInputPart, IChatInputStyles } from './aideAgentInputPart.js';
 import { ChatListDelegate, ChatListItemRenderer, IChatRendererDelegate } from './aideAgentListRenderer.js';
 import { ChatEditorOptions } from './aideAgentOptions.js';
@@ -147,9 +146,6 @@ export class ChatWidget extends Disposable implements IChatWidget {
 	private container!: HTMLElement;
 	private welcomeMessageContainer!: HTMLElement;
 	private persistedWelcomeMessage: IChatWelcomeMessageContent | undefined;
-
-	private editPreviewContainer!: HTMLElement;
-	private editPreviewWidget: AideAgentEditPreviewWidget | undefined;
 
 	private bodyDimension: dom.Dimension | undefined;
 	private visibleChangeCount = 0;
@@ -364,16 +360,6 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		}));
 
 		this._register(this.onDidChangeParsedInput(() => this.updateChatInputContext()));
-		this._register(this.chatService.onDidDisposeSession(() => {
-			this.hideEditPreviewWidget();
-		}));
-	}
-
-	private hideEditPreviewWidget() {
-		if (this.editPreviewWidget) {
-			this.editPreviewWidget.clear();
-			this.editPreviewWidget.visible = false;
-		}
 	}
 
 	private _lastSelectedAgent: IChatAgentData | undefined;
@@ -428,10 +414,8 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		if (renderInputOnTop) {
 			this.createInput(this.container, { renderFollowups, renderStyle });
 			this.listContainer = dom.append(this.container, $(`.interactive-list`));
-			this.editPreviewContainer = dom.append(this.container, $(`.edit-preview`));
 		} else {
 			this.listContainer = dom.append(this.container, $(`.interactive-list`));
-			this.editPreviewContainer = dom.append(this.container, $(`.edit-preview`));
 			this.createInput(this.container, { renderFollowups, renderStyle });
 		}
 
@@ -449,10 +433,6 @@ export class ChatWidget extends Disposable implements IChatWidget {
 			this.scrollLock = true;
 			this.scrollToEnd();
 		}));
-
-		if (!('isPassthrough' in this.viewContext) || !this.viewContext.isPassthrough) {
-			this.createEditPreviewWidget(this.editPreviewContainer);
-		}
 
 		this._register(this.editorOptions.onDidChange(() => this.onDidStyleChange()));
 		this.onDidStyleChange();
@@ -531,8 +511,8 @@ export class ChatWidget extends Disposable implements IChatWidget {
 	}
 
 	private onDidChangeItems(skipDynamicLayout?: boolean) {
-		const vmItems = this.viewModel?.getItems() ?? [];
 		if (this._visible || !this.viewModel) {
+			const vmItems = this.viewModel?.getItems() ?? [];
 			const treeItems = vmItems
 				.map((item): ITreeElement<ChatTreeItem> => {
 					return {
@@ -573,18 +553,6 @@ export class ChatWidget extends Disposable implements IChatWidget {
 				this.layoutDynamicChatTreeItemMode();
 			}
 		}
-
-		if (this.editPreviewWidget) {
-			const progressStages = vmItems
-				.filter(i => isResponseVM(i))
-				.flatMap(i => i.response.value.map(progress => ({ progress, exchangeId: i.id })))
-				.filter(i => i.progress.kind === 'stage');
-			const lastProgressStage = progressStages.pop();
-			if (lastProgressStage && lastProgressStage.exchangeId === this.chatService.lastExchangeId) {
-				const entry = lastProgressStage?.progress as IChatProgressResponseContent & { kind: 'stage' };
-				this.editPreviewWidget.updateProgress(entry.message);
-			}
-		}
 	}
 
 	private renderWelcomeViewContentIfNeeded() {
@@ -614,8 +582,7 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		if (!this.inputPart) {
 			return;
 		}
-		// TODO(@ghostwriternr): Major TODO
-		// this.inputPart.renderChatEditingSessionState(this._editingSession ?? null, this);
+		this.inputPart.renderChatEditingSessionState(this._editingSession ?? null, this);
 
 		if (this.bodyDimension) {
 			this.layout(this.bodyDimension.height, this.bodyDimension.width);
@@ -740,15 +707,6 @@ export class ChatWidget extends Disposable implements IChatWidget {
 
 			const isScrolledDown = this.tree.scrollTop >= this.tree.scrollHeight - this.tree.renderHeight - 2;
 			this.container.classList.toggle('show-scroll-down', !isScrolledDown && !this.scrollLock);
-		}));
-	}
-
-	private createEditPreviewWidget(container: HTMLElement): void {
-		this.editPreviewWidget = this._register(this.instantiationService.createInstance(AideAgentEditPreviewWidget, container));
-		this._register(this.editPreviewWidget.onDidChangeHeight(() => {
-			if (this.bodyDimension) {
-				this.layout(this.bodyDimension.height, this.bodyDimension.width);
-			}
 		}));
 	}
 
@@ -1023,7 +981,6 @@ export class ChatWidget extends Disposable implements IChatWidget {
 
 	private async _acceptInput(opts: { query: string; mode: AgentMode } | undefined): Promise<IChatResponseModel | undefined> {
 		if (this.viewModel) {
-			this.editPreviewWidget?.updateProgress('Thinking...');
 			const editorValue = this.getInput();
 			if ('isPassthrough' in this.viewContext && this.viewContext.isPassthrough) {
 				const widget = await showChatView(this.viewsService);
@@ -1184,9 +1141,8 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		this.inputPart.layout(inputPartMaxHeight, width);
 		const inputPartHeight = this.inputPart.inputPartHeight;
 		const lastElementVisible = this.tree.scrollTop + this.tree.renderHeight >= this.tree.scrollHeight - 2;
-		const editPreviewWidgetHeight = this.editPreviewContainer.offsetHeight;
 
-		const listHeight = Math.max(0, height - inputPartHeight - editPreviewWidgetHeight);
+		const listHeight = Math.max(0, height - inputPartHeight);
 		if (!this.viewOptions.autoScroll) {
 			this.listContainer.style.setProperty('--chat-current-response-min-height', listHeight * .75 + 'px');
 		}

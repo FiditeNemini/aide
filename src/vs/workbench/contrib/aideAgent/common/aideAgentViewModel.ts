@@ -74,6 +74,7 @@ export interface IChatRequestViewModel {
 	readonly contentReferences?: ReadonlyArray<IChatContentReference>;
 	readonly confirmation?: string;
 	readonly shouldBeRemovedOnSend: boolean;
+	readonly isComplete: boolean;
 }
 
 export interface IChatResponseMarkdownRenderData {
@@ -347,7 +348,7 @@ export class ChatRequestViewModel implements IChatRequestViewModel {
 	}
 
 	get dataId() {
-		return this.id + `_${ChatModelInitState[this._model.session.initState]}_${hash(this.variables)}`;
+		return this.id + `_${ChatModelInitState[this._model.session.initState]}_${hash(this.variables)}_${hash(this.isComplete)}`;
 	}
 
 	get sessionId() {
@@ -386,6 +387,10 @@ export class ChatRequestViewModel implements IChatRequestViewModel {
 
 	get confirmation() {
 		return this._model.confirmation;
+	}
+
+	get isComplete() {
+		return false;
 	}
 
 	get shouldBeRemovedOnSend() {
