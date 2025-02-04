@@ -181,7 +181,8 @@ export class RageShakeService extends Disposable implements IRageShakeService {
 
 	private async sendFeedback() {
 		const currentView = this.currentView.get();
-		// Create the base data object
+
+		// @g-danna Replace commit with release
 		const data = {
 			version: this.productService.version,
 			commit: this.productService.commit,
