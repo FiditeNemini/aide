@@ -9,7 +9,7 @@ import { Emitter, Event } from '../../../../base/common/event.js';
 import Severity from '../../../../base/common/severity.js';
 import { URI } from '../../../../base/common/uri.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
-import { CSAuthenticationSession, CSUserProfileResponse, EncodedCSTokenData, GetSessionOptions, ICSAccountService, ICSAuthenticationService, SubscriptionResponse } from '../../../../platform/codestoryAccount/common/csAccount.js';
+import { CSAuthenticationSession, CSUserProfileResponse, EncodedCSTokenData, GetSessionOptions, ICSAuthenticationService, SubscriptionResponse } from '../../../../platform/codestoryAccount/common/csAccount.js';
 import { CommandsRegistry } from '../../../../platform/commands/common/commands.js';
 import { IEnvironmentService } from '../../../../platform/environment/common/environment.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
@@ -35,6 +35,9 @@ export class CSAuthenticationService extends Themable implements ICSAuthenticati
 	private _onDidAuthenticate: Emitter<CSAuthenticationSession> = this._register(new Emitter<CSAuthenticationSession>());
 	readonly onDidAuthenticate: Event<CSAuthenticationSession> = this._onDidAuthenticate.event;
 
+	private _onShouldAuthenticate = this._register(new Emitter<void>());
+	readonly onShouldAuthenticate = this._onShouldAuthenticate.event;
+
 	private _subscriptionsAPIBase: string | null = null;
 	private _websiteBase: string | null = null;
 
@@ -49,7 +52,6 @@ export class CSAuthenticationService extends Themable implements ICSAuthenticati
 		@IOpenerService private readonly openerService: IOpenerService,
 		@IURLService private readonly urlService: IURLService,
 		@INotificationService private readonly notificationService: INotificationService,
-		@ICSAccountService private readonly csAccountService: ICSAccountService
 	) {
 		super(themeService);
 
@@ -110,11 +112,8 @@ export class CSAuthenticationService extends Themable implements ICSAuthenticati
 						priority: NotificationPriority.URGENT,
 					});
 
-					if (!this.csAccountService.isVisible) {
-						this.csAccountService.toggle();
-					}
-
 					await this.deleteSession();
+					this._onShouldAuthenticate.fire();
 					throw new Error('Refresh token invalid or expired');
 				} else if (response.status >= 500) {
 					// Likely a transient server error, let's retry

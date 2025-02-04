@@ -77,7 +77,6 @@ export interface ICSAccountService {
 	readonly _serviceBrand: undefined;
 
 	toggle(): void;
-	isVisible: boolean;
 	ensureAuthorized(): Promise<boolean>;
 }
 
@@ -85,6 +84,7 @@ export const ICSAuthenticationService = createDecorator<ICSAuthenticationService
 export interface ICSAuthenticationService {
 	readonly _serviceBrand: undefined;
 	readonly onDidAuthenticate: Event<CSAuthenticationSession>;
+	readonly onShouldAuthenticate: Event<void>;
 
 	createSession(): Promise<CSAuthenticationSession>;
 	deleteSession(sessionId: string): Promise<void>;

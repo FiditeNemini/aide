@@ -29,9 +29,6 @@ export class CSAccountService extends Disposable implements ICSAccountService {
 	private authenticatedSession: CSAuthenticationSession | undefined;
 
 	private _isVisible: IContextKey<boolean>;
-	get isVisible() {
-		return this._isVisible.get()!;
-	}
 	private csAccountCard: HTMLElement | undefined;
 
 	private _websiteBase: string | null = null;
@@ -57,6 +54,13 @@ export class CSAccountService extends Disposable implements ICSAccountService {
 
 		this._isVisible = CS_ACCOUNT_CARD_VISIBLE.bindTo(this.contextKeyService);
 		this.refresh();
+
+
+		this._register(this.csAuthenticationService.onShouldAuthenticate(() => {
+			if (!this._isVisible) {
+				this.show();
+			}
+		}));
 	}
 
 	private async refresh(): Promise<void> {
