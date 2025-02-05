@@ -57,8 +57,8 @@ export class CSAccountService extends Disposable implements ICSAccountService {
 
 
 		this._register(this.csAuthenticationService.onShouldAuthenticate(() => {
-			if (!this._isVisible) {
-				this.show();
+			if (!this._isVisible.get()) {
+				this.toggle();
 			}
 		}));
 	}

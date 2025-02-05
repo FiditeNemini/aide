@@ -9,7 +9,6 @@ import * as os from 'os';
 import * as vscode from 'vscode';
 
 import { AnswerSplitOnNewLineAccumulatorStreaming, StreamProcessor } from '../../chatState/convertStreamToMessage';
-import { CSEventHandler } from '../../csEvents/csEventHandler';
 import postHogClient from '../../posthog/client';
 import { applyEdits, applyEditsDirectly, } from '../../server/applyEdits';
 import { createFileIfNotExists } from '../../server/createFile';
@@ -56,6 +55,7 @@ class AideResponseStreamCollection {
 			// on the sidecar... pretty sure I will forget and scream at myself later on
 			// for having herd knowledged like this
 			const responseStreamAnswer = this.sidecarClient.cancelRunningEvent(responseStreamIdentifier.sessionId, responseStreamIdentifier.exchangeId, this.aideAgentSessionProvider.editorUrl!, '');
+
 			this.aideAgentSessionProvider.reportAgentEventsToChat(responseStreamIdentifier.sessionId, responseStreamAnswer);
 		}));
 		this.responseStreamCollection.set(this.getKey(responseStreamIdentifier), responseStream);
@@ -147,7 +147,6 @@ export class AideAgentSessionProvider implements vscode.AideSessionParticipant {
 		private currentRepoRef: RepoRef,
 		private projectContext: ProjectContext,
 		private sidecarClient: SideCarClient,
-		private csEventHandler: CSEventHandler,
 		recentEditsRetriever: RecentEditsRetriever,
 		extensionContext: vscode.ExtensionContext,
 	) {
@@ -479,15 +478,25 @@ export class AideAgentSessionProvider implements vscode.AideSessionParticipant {
 		const variables = event.references;
 
 		// Closure to refactor as little as possible
-		let errored = false;
-		const onError = () => {
-			errored = true;
+		//let errored = false;
+		//const onError = () => {
+		//	errored = true;
+		//};
+
+		const onUnauthorized = async () => {
+			if (hasRetried) {
+				return;
+			}
+			console.log('Got a 401 error from the Sidecar. Retrying once...');
+			const session = await vscode.csAuthentication.getSession({ hardCheck: true });
+			const newToken = session?.accessToken ?? '';
+			return await this.streamResponse(event, sessionId, editorUrl, newToken, true);
 		};
 
 		try {
 			if (agentMode === vscode.AideAgentMode.Chat) {
 				const responseStream = this.sidecarClient.agentSessionChat(prompt, sessionId, exchangeIdForEvent, editorUrl, agentMode, variables, this.currentRepoRef, this.projectContext.labels, workosAccessToken);
-				await this.reportAgentEventsToChat(sessionId, responseStream, onError);
+				await this.reportAgentEventsToChat(sessionId, responseStream, onUnauthorized);
 			} else if (agentMode === vscode.AideAgentMode.Edit) {
 				// Now lets try to handle the edit event first
 				// there are 2 kinds of edit events:
@@ -496,11 +505,11 @@ export class AideAgentSessionProvider implements vscode.AideSessionParticipant {
 				// if its selection scope then its agentic
 				if (event.scope === vscode.AideAgentScope.Selection) {
 					const responseStream = await this.sidecarClient.agentSessionAnchoredEdit(prompt, sessionId, exchangeIdForEvent, editorUrl, agentMode, variables, this.currentRepoRef, this.projectContext.labels, workosAccessToken);
-					await this.reportAgentEventsToChat(sessionId, responseStream, onError);
+					await this.reportAgentEventsToChat(sessionId, responseStream, onUnauthorized);
 				} else {
 					const isWholeCodebase = event.scope === vscode.AideAgentScope.Codebase;
 					const responseStream = await this.sidecarClient.agentSessionPlanStep(prompt, sessionId, exchangeIdForEvent, editorUrl, agentMode, variables, this.currentRepoRef, this.projectContext.labels, isWholeCodebase, workosAccessToken, event.isDevtoolsContext);
-					await this.reportAgentEventsToChat(sessionId, responseStream, onError);
+					await this.reportAgentEventsToChat(sessionId, responseStream, onUnauthorized);
 				}
 			} else if (agentMode === vscode.AideAgentMode.Plan || agentMode === vscode.AideAgentMode.Agentic) {
 				// For plan generation we have 2 things which can happen:
@@ -509,21 +518,14 @@ export class AideAgentSessionProvider implements vscode.AideSessionParticipant {
 				// once we have a step of the plan we should stream it along with the edits of the plan
 				// and keep doing that until we are done completely
 				const responseStream = await this.sidecarClient.agentSessionPlanStep(prompt, sessionId, exchangeIdForEvent, editorUrl, agentMode, variables, this.currentRepoRef, this.projectContext.labels, false, workosAccessToken, event.isDevtoolsContext);
-				await this.reportAgentEventsToChat(sessionId, responseStream, onError);
+				await this.reportAgentEventsToChat(sessionId, responseStream, onUnauthorized);
 			}
 			// This we use to track agent usage - only hit this if we didn't fail
 			// if (!errored) {
 			// 	this.csEventHandler.handleNewRequest(event.mode === vscode.AideAgentMode.Agentic ? 'AgenticRequest' : 'ChatRequest');
 			// }
 		} catch (error) {
-			if (!hasRetried && typeof error?.message === 'string' && error.message.includes('401')) {
-				console.log('Got a 401 error from the Sidecar. Retrying once...');
-				const session = await vscode.csAuthentication.getSession({ hardCheck: true });
-				const newToken = session?.accessToken ?? '';
-				return await this.streamResponse(event, sessionId, editorUrl, newToken, true);
-			}
-
-			// The rest is unchanged: show an error in the chat, stop streaming, etc.
+			// Show an error in the chat, stop streaming, etc.
 			const responseStream = this.responseStreamCollection.latestResponseStream
 				?? await this.createNewResponseStream(sessionId);
 			if (!responseStream) {
@@ -549,6 +551,7 @@ export class AideAgentSessionProvider implements vscode.AideSessionParticipant {
 	async reportAgentEventsToChat(
 		sessionId: string,
 		stream: AsyncIterableIterator<SideCarAgentEvent>,
+		unauthorizedCallback?: () => void,
 		errorCallback?: () => void,
 	): Promise<void> {
 		const asyncIterable = {
@@ -596,6 +599,9 @@ export class AideAgentSessionProvider implements vscode.AideSessionParticipant {
 						}
 						streamStarted = true;
 						return;
+						// @g-danna @theskcd strings checks for now, let's avoid them
+					} else if (event.event.Error.message.toLowerCase().includes('unauthorized access')) {
+						unauthorizedCallback?.();
 					}
 
 					const stream = this.responseStreamCollection.latestResponseStream ?? await this.createNewResponseStream(event.request_id);
@@ -713,6 +719,11 @@ export class AideAgentSessionProvider implements vscode.AideSessionParticipant {
 						const error_string = event.event.FrameworkEvent.ToolCallError.error_string;
 						if (error_string === 'Cancelled Response') {
 							responseStream.stream.stage({ message: 'Cancelled' });
+						} else if (error_string === 'LLM Client error: Unauthorized access to API') {
+							responseStream.stream.stage({ message: 'Error' });
+							responseStream.stream.toolTypeError({
+								message: `Invalid session`
+							});
 						} else {
 							responseStream.stream.toolTypeError({
 								message: `The LLM that you're using right now returned a response that does not adhere to the format our framework expects, and thus this request has failed. If you keep seeing this error, this is likely because the LLM is unable to follow our system instructions and it is recommended to switch over to one of our recommended models instead.`
@@ -723,6 +734,10 @@ export class AideAgentSessionProvider implements vscode.AideSessionParticipant {
 						const openStreams = this.responseStreamCollection.getAllResponseStreams();
 						for (const stream of openStreams) {
 							this.closeAndRemoveResponseStream(sessionId, stream.exchangeId);
+						}
+						// @g-danna @theskcd strings checks for now, let's avoid them
+						if (error_string === 'LLM Client error: Unauthorized access to API') {
+							unauthorizedCallback?.();
 						}
 						return;
 					}

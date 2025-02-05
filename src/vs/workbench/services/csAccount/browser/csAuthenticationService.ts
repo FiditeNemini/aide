@@ -29,6 +29,11 @@ class CSAuthenticationError extends Error {
 
 const SESSION_SECRET_KEY = 'codestory.auth.session';
 
+type AuthError = {
+	type: 'transient' | 'configuration' | 'unauthorized';
+	message: string;
+};
+
 export class CSAuthenticationService extends Themable implements ICSAuthenticationService {
 	declare readonly _serviceBrand: undefined;
 
@@ -86,58 +91,57 @@ export class CSAuthenticationService extends Themable implements ICSAuthenticati
 		}
 
 		let attempts = 0;
-		let lastError: unknown;
+		let lastError: AuthError | undefined;
 
-		while (attempts < this.MAX_REFRESH_RETRIES) {
-			try {
-				const response = await fetch(`${this._subscriptionsAPIBase}/v1/auth/refresh`, {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({
-						refresh_token: this._session.refreshToken
-					}),
+		while (attempts < this.MAX_REFRESH_RETRIES && lastError?.type !== 'unauthorized') {
+
+			const response = await fetch(`${this._subscriptionsAPIBase}/v1/auth/refresh`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					refresh_token: this._session.refreshToken
+				}),
+			});
+
+			if (response.ok) {
+				// Successfully got a new token
+				const data = (await response.json()) as EncodedCSTokenData;
+				await this.getSessionData(this._session.id, data);
+				this.scheduleRefresh(data.access_token);
+				return;  // Done refreshing
+			} else if (response.status === 401) {
+				// The refresh token is truly invalid or expired
+				this.notificationService.notify({
+					severity: Severity.Error,
+					message: 'Your CodeStory session has expired. Please sign in again.',
+					priority: NotificationPriority.URGENT,
 				});
 
-				if (response.ok) {
-					// Successfully got a new token
-					const data = (await response.json()) as EncodedCSTokenData;
-					await this.getSessionData(this._session.id, data);
-					this.scheduleRefresh(data.access_token);
-					return;  // Done refreshing
-				} else if (response.status === 401) {
-					// The refresh token is truly invalid or expired
-					this.notificationService.notify({
-						severity: Severity.Error,
-						message: 'Your CodeStory session has expired. Please sign in again.',
-						priority: NotificationPriority.URGENT,
-					});
-
-					await this.deleteSession();
-					this._onShouldAuthenticate.fire();
-					throw new Error('Refresh token invalid or expired');
-				} else if (response.status >= 500) {
-					// Likely a transient server error, let's retry
-					lastError = new Error(`Server error ${response.status}, attempt ${attempts + 1}`);
-				} else {
-					// Some other 4XX error - possibly a misconfiguration or something else
-					lastError = new Error(`Unexpected HTTP ${response.status} on refresh, attempt ${attempts + 1}`);
-				}
-			} catch (err) {
-				// Could be network error, DNS, etc.
-				lastError = err;
+				await this.deleteSession();
+				this._onShouldAuthenticate.fire();
+				lastError = { type: 'unauthorized', message: 'Refresh token invalid or expired' };
+			} else if (response.status >= 500) {
+				// Likely a transient server error, let's retry
+				lastError = { type: 'transient', message: `Server error ${response.status}, attempt ${attempts + 1}` };
+			} else {
+				// Some other 4XX error - possibly a misconfiguration or something else
+				lastError = { type: 'configuration', message: `Unexpected HTTP ${response.status} on refresh, attempt ${attempts + 1}` };
 			}
 
 			attempts++;
 			await delay(1000 * attempts);
 		}
 
-		this.notificationService.notify({
-			severity: Severity.Error,
-			message: `Failed to refresh CodeStory session after ${this.MAX_REFRESH_RETRIES} attempts. Please check your internet or try again later.`,
-		});
+		if (lastError && lastError.type !== 'unauthorized') {
+			this.notificationService.notify({
+				severity: Severity.Error,
+				message: `Failed to refresh CodeStory session after ${this.MAX_REFRESH_RETRIES} attempts. Please check your internet or try again later.`,
+			});
+		}
 
 		// await this.deleteSession();
-		throw lastError;
+
+		throw new Error(lastError?.message);
 	}
 
 	private scheduleRefresh(
@@ -150,6 +154,12 @@ export class CSAuthenticationService extends Themable implements ICSAuthenticati
 			const msUntilExpiry = expirationMs - nowMs;
 			const refreshDelay = msUntilExpiry - 30_000; // We want to refresh 30s before official expiration
 			const finalDelay = Math.max(0, refreshDelay); // In case the token is nearly or already expired, schedule immediately
+
+			const isDevelopment = !this.environmentService.isBuilt || this.environmentService.isExtensionDevelopment;
+			if (isDevelopment) {
+				console.log(`Scheduled refresh in ${finalDelay / 1000}s`);
+			}
+
 			return setTimeout(() => {
 				this.refreshTokens();
 			}, finalDelay);

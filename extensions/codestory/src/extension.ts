@@ -181,7 +181,6 @@ export async function activate(context: vscode.ExtensionContext) {
 		currentRepo,
 		projectContext,
 		sidecarClient,
-		csEventHandler,
 		recentEditsRetriever,
 		context,
 	);
