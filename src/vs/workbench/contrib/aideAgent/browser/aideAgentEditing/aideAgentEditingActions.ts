@@ -15,9 +15,12 @@ import { IDialogService } from '../../../../../platform/dialogs/common/dialogs.j
 import { KeybindingWeight } from '../../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { ChatAgentLocation } from '../../common/aideAgentAgents.js';
-import { CONTEXT_CHAT_INPUT_HAS_TEXT, CONTEXT_CHAT_LOCATION, CONTEXT_CHAT_REQUEST_IN_PROGRESS, CONTEXT_IN_CHAT_INPUT } from '../../common/aideAgentContextKeys.js';
+import { CONTEXT_CHAT_INPUT_HAS_TEXT, CONTEXT_CHAT_LOCATION, CONTEXT_CHAT_REQUEST_IN_PROGRESS, CONTEXT_IN_CHAT_INPUT, CONTEXT_IN_CHAT_SESSION } from '../../common/aideAgentContextKeys.js';
 import { applyingChatEditsFailedContextKey, CHAT_EDITING_MULTI_DIFF_SOURCE_RESOLVER_SCHEME, chatEditingResourceContextKey, chatEditingWidgetFileStateContextKey, decidedChatEditingResourceContextKey, hasAppliedChatEditsContextKey, hasUndecidedChatEditingResourceContextKey, IAideAgentEditingService, IChatEditingSession, WorkingSetEntryState } from '../../common/aideAgentEditingService.js';
-import { IAideAgentWidgetService, IChatWidget } from '../aideAgent.js';
+import { IAideAgentService } from '../../common/aideAgentService.js';
+import { isRequestVM, isResponseVM } from '../../common/aideAgentViewModel.js';
+import { CHAT_CATEGORY } from '../actions/aideAgentActions.js';
+import { ChatTreeItem, IAideAgentWidgetService, IChatWidget } from '../aideAgent.js';
 
 abstract class WorkingSetAction extends Action2 {
 	run(accessor: ServicesAccessor, ...args: any[]) {
@@ -266,3 +269,71 @@ export class ChatEditingShowChangesAction extends Action2 {
 	}
 }
 registerAction2(ChatEditingShowChangesAction);
+
+registerAction2(class RemoveAction extends Action2 {
+	constructor() {
+		super({
+			id: 'workbench.action.aideAgent.undoEdits',
+			title: localize2('chat.undoEdits.label', "Revert until here"),
+			f1: false,
+			category: CHAT_CATEGORY,
+			icon: Codicon.discard,
+			keybinding: {
+				primary: KeyCode.Delete,
+				mac: {
+					primary: KeyMod.CtrlCmd | KeyCode.Backspace,
+				},
+				when: ContextKeyExpr.and(CONTEXT_CHAT_LOCATION.isEqualTo(ChatAgentLocation.Panel), CONTEXT_IN_CHAT_SESSION, CONTEXT_IN_CHAT_INPUT.negate()),
+				weight: KeybindingWeight.WorkbenchContrib,
+			},
+			menu: [
+				{
+					id: MenuId.AideAgentMessageTitle,
+					group: 'navigation',
+					order: 2,
+					when: ContextKeyExpr.and(CONTEXT_CHAT_LOCATION.isEqualTo(ChatAgentLocation.Panel))
+				}
+			]
+		});
+	}
+
+	async run(accessor: ServicesAccessor, ...args: any[]) {
+		let item: ChatTreeItem | undefined = args[0];
+		if (!isResponseVM(item) && !isRequestVM(item)) {
+			const chatWidgetService = accessor.get(IAideAgentWidgetService);
+			const widget = chatWidgetService.lastFocusedWidget;
+			item = widget?.getFocus();
+		}
+		if (!item) {
+			return;
+		}
+
+		const chatEditingService = accessor.get(IAideAgentEditingService);
+		const chatService = accessor.get(IAideAgentService);
+		const chatModel = chatService.getSession(item.sessionId);
+		if (chatModel?.initialLocation !== ChatAgentLocation.Panel) {
+			return;
+		}
+
+		const session = chatEditingService.currentEditingSession;
+		if (!session) {
+			return;
+		}
+
+		const exchangeId = item.id;
+		if (exchangeId) {
+			const chatExchanges = chatModel.getExchanges();
+			const itemIndex = chatExchanges.findIndex(exchange => exchange.id === exchangeId);
+			const exchangesToRemove = chatExchanges.slice(itemIndex);
+
+			// Restore the snapshot to what it was before the exchange(s) that we deleted
+			const snapshotExchangeId = chatExchanges[itemIndex].id;
+			await session.restoreSnapshot(snapshotExchangeId);
+
+			// Remove the request and all that come after it
+			for (const exchange of exchangesToRemove) {
+				await chatService.removeExchange(item.sessionId, exchange.id);
+			}
+		}
+	}
+});

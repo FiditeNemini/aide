@@ -452,14 +452,12 @@ export interface IAideAgentService {
 	sendRequest(sessionId: string, message: string, options?: IChatSendRequestOptions): Promise<IChatSendRequestData | undefined>;
 	// TODO(@ghostwriternr): This method already seems unused. Remove it?
 	// resendRequest(request: IChatRequestModel, options?: IChatSendRequestOptions): Promise<void>;
-	// TODO(@ghostwriternr): Remove this if we no longer need to remove requests.
-	// removeRequest(sessionid: string, requestId: string): Promise<void>;
 
 	cancelExchange(exchangeId: string): void;
 	cancelAllExchangesForSession(): void;
 
 	initiateResponse(sessionId: string): Promise<{ responseId: string; callback: (p: IChatProgress) => void; token: CancellationToken }>;
-
+	removeExchange(sessionid: string, exchangeId: string): Promise<void>;
 	cancelCurrentRequestForSession(sessionId: string): void;
 	clearSession(sessionId: string): void;
 	addCompleteRequest(sessionId: string, message: IParsedChatRequest | string, variableData: IChatRequestVariableData | undefined, attempt: number | undefined, response: IChatCompleteResponse): void;

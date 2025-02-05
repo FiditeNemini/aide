@@ -726,8 +726,7 @@ export class ChatService extends Disposable implements IAideAgentService {
 		};
 	}
 
-	/* TODO(@ghostwriternr): Remove this if we no longer need to remove requests.
-	async removeRequest(sessionId: string, requestId: string): Promise<void> {
+	async removeExchange(sessionId: string, exchangeId: string): Promise<void> {
 		const model = this._sessionModels.get(sessionId);
 		if (!model) {
 			throw new Error(`Unknown session: ${sessionId}`);
@@ -735,15 +734,14 @@ export class ChatService extends Disposable implements IAideAgentService {
 
 		await model.waitForInitialization();
 
-		const pendingRequest = this._pendingRequests.get(sessionId);
-		if (pendingRequest?.requestId === requestId) {
+		const pendingRequest = this._pendingExchanges.get(sessionId);
+		if (pendingRequest?.exchangeId === exchangeId) {
 			pendingRequest.cancel();
-			this._pendingRequests.deleteAndDispose(sessionId);
+			this._pendingExchanges.deleteAndDispose(sessionId);
 		}
 
-		model.removeRequest(requestId);
+		model.removeExchange(exchangeId);
 	}
-	*/
 
 	async initiateResponse(sessionId: string): Promise<{ responseId: string; callback: (p: IChatProgress) => void; token: CancellationToken }> {
 		const model = this._sessionModels.get(sessionId);

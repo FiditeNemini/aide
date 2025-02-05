@@ -34,7 +34,7 @@ export function isRequestModel(item: unknown): item is IChatRequestModel {
 }
 
 export function isResponseModel(item: unknown): item is IChatResponseModel {
-	return !!item && typeof (item as IChatResponseModel).setVote !== 'undefined';
+	return !!item && typeof (item as IChatResponseModel).response !== 'undefined';
 }
 
 export interface IBaseChatRequestVariableEntry {
@@ -691,7 +691,7 @@ export function isSerializableSessionData(obj: unknown): obj is ISerializableCha
 
 export type IChatChangeEvent =
 	| IChatInitEvent
-	| IChatAddRequestEvent | IChatChangedRequestEvent | IChatRemoveRequestEvent
+	| IChatAddRequestEvent | IChatChangedRequestEvent | IChatRemoveExchangeEvent
 	| IChatAddResponseEvent
 	| IChatSetAgentEvent
 	| IChatMoveEvent
@@ -713,7 +713,7 @@ export interface IChatAddResponseEvent {
 	response: IChatResponseModel;
 }
 
-export const enum ChatRequestRemovalReason {
+export const enum ChatExchangeRemovalReason {
 	/**
 	 * "Normal" remove
 	 */
@@ -725,11 +725,10 @@ export const enum ChatRequestRemovalReason {
 	Resend,
 }
 
-export interface IChatRemoveRequestEvent {
-	kind: 'removeRequest';
-	requestId: string;
-	responseId?: string;
-	reason: ChatRequestRemovalReason;
+export interface IChatRemoveExchangeEvent {
+	kind: 'removeExchange';
+	exchangeId: string;
+	reason: ChatExchangeRemovalReason;
 }
 
 export interface IChatMoveEvent {
@@ -1176,18 +1175,18 @@ export class ChatModel extends Disposable implements IChatModel {
 		this.plan.updateSteps(progress);
 	}
 
-	/* TODO(@ghostwriternr): This method was used to remove/resend requests. We can add it back in if we need it.
-	removeRequest(id: string, reason: ChatRequestRemovalReason = ChatRequestRemovalReason.Removal): void {
-		const index = this._exchanges.findIndex(request => request.id === id);
-		const request = this._exchanges[index];
+	removeExchange(id: string, reason: ChatExchangeRemovalReason = ChatExchangeRemovalReason.Removal): void {
+		const index = this._exchanges.findIndex(exchange => exchange.id === id);
+		const exchange = this._exchanges[index];
 
 		if (index !== -1) {
-			this._onDidChange.fire({ kind: 'removeRequest', requestId: request.id, responseId: request.response?.id, reason });
+			this._onDidChange.fire({ kind: 'removeExchange', exchangeId: exchange.id, reason });
 			this._exchanges.splice(index, 1);
-			request.response?.dispose();
+			if (exchange instanceof ChatResponseModel) {
+				exchange.dispose();
+			}
 		}
 	}
-	*/
 
 	cancelResponse(response: ChatResponseModel): void {
 		if (response) {

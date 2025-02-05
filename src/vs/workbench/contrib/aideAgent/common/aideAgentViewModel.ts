@@ -289,14 +289,9 @@ export class ChatViewModel extends Disposable implements IChatViewModel {
 				*/
 			} else if (e.kind === 'addResponse') {
 				this.onAddResponse(e.response);
-			} else if (e.kind === 'removeRequest') {
-				const requestIdx = this._items.findIndex(item => isRequestVM(item) && item.id === e.requestId);
-				this.removeItem(requestIdx);
-
-				const responseIdx = e.responseId && this._items.findIndex(item => isResponseVM(item) && item.id === e.responseId);
-				if (typeof responseIdx === 'number') {
-					this.removeItem(responseIdx);
-				}
+			} else if (e.kind === 'removeExchange') {
+				const exchangeIdx = this._items.findIndex(item => item.id === e.exchangeId);
+				this.removeItem(exchangeIdx);
 			}
 
 			const modelEventToVmEvent: IChatViewModelChangeEvent =

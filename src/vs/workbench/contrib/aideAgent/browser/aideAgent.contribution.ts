@@ -50,7 +50,6 @@ import { ExecuteChatAction, registerChatExecuteActions } from './actions/aideAge
 import { registerChatFileTreeActions } from './actions/aideAgentFileTreeActions.js';
 import { registerAideAgentFloatingWidgetActions } from './actions/aideAgentFloatingWidgetActions.js';
 import { ChatGettingStartedContribution } from './actions/aideAgentGettingStarted.js';
-import { registerChatTitleActions } from './actions/aideAgentTitleActions.js';
 import { registerDevtoolsActions } from './actions/devtoolsActions.js';
 import { IAideAgentAccessibilityService, IAideAgentCodeBlockContextProviderService, IAideAgentWidgetService } from './aideAgent.js';
 import { AideAgentAccessibilityService } from './aideAgentAccessibilityService.js';
@@ -282,7 +281,6 @@ registerChatCopyActions();
 registerChatCodeBlockActions();
 registerChatCodeCompareBlockActions();
 registerChatFileTreeActions();
-registerChatTitleActions();
 registerChatExecuteActions();
 registerNewChatActions();
 registerChatContextActions();
