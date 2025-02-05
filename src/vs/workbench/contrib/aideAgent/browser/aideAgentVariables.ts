@@ -24,7 +24,6 @@ import { AgentScope, IChatModel, IChatRequestVariableData, IChatRequestVariableE
 import { ChatRequestDynamicVariablePart, ChatRequestToolPart, ChatRequestVariablePart, IParsedChatRequest } from '../common/aideAgentParserTypes.js';
 import { IChatContentReference, IChatSendRequestOptions } from '../common/aideAgentService.js';
 import { IAideAgentVariablesService, IChatRequestVariableValue, IChatVariableData, IChatVariableResolver, IChatVariableResolverProgress, IDynamicVariable } from '../common/aideAgentVariables.js';
-import { IAideAgentLMToolsService } from '../common/languageModelToolsService.js';
 import { IAideAgentWidgetService, showChatView } from './aideAgent.js';
 import { ChatDynamicVariableModel } from './contrib/aideAgentDynamicVariables.js';
 
@@ -39,12 +38,11 @@ export class ChatVariablesService implements IAideAgentVariablesService {
 	private _resolver = new Map<string, IChatData>();
 
 	constructor(
-		@IAideAgentLMToolsService private readonly toolsService: IAideAgentLMToolsService,
 		@IAideAgentWidgetService private readonly chatWidgetService: IAideAgentWidgetService,
 		@IEditorService private readonly editorService: IEditorService,
 		@IModelService private readonly modelService: IModelService,
-		@ITextModelService private readonly textModelService: ITextModelService,
 		@IPinnedContextService private readonly pinnedContextService: IPinnedContextService,
+		@ITextModelService private readonly textModelService: ITextModelService,
 		@IViewsService private readonly viewsService: IViewsService,
 	) {
 	}
@@ -73,12 +71,9 @@ export class ChatVariablesService implements IAideAgentVariablesService {
 						}).catch(onUnexpectedExternalError));
 					}
 				} else if (part instanceof ChatRequestDynamicVariablePart) {
-					resolvedVariables[i] = { id: part.id, name: part.referenceText, range: part.range, value: part.data, };
+					resolvedVariables[i] = { id: part.id, name: part.referenceText, range: part.range, value: part.data, fullName: part.fullName, icon: part.icon, isFile: part.isFile };
 				} else if (part instanceof ChatRequestToolPart) {
-					const tool = this.toolsService.getTool(part.toolId);
-					if (tool) {
-						resolvedVariables[i] = { id: part.toolId, name: part.toolName, range: part.range, value: undefined, isTool: true, icon: ThemeIcon.isThemeIcon(tool.icon) ? tool.icon : undefined, fullName: tool.displayName };
-					}
+					resolvedVariables[i] = { id: part.toolId, name: part.toolName, range: part.range, value: undefined, isTool: true, icon: ThemeIcon.isThemeIcon(part.icon) ? part.icon : undefined, fullName: part.displayName };
 				}
 			});
 
@@ -101,7 +96,7 @@ export class ChatVariablesService implements IAideAgentVariablesService {
 						}
 					}).catch(onUnexpectedExternalError));
 				} else if (attachment.isDynamic || attachment.isTool) {
-					resolvedAttachedContext[i] = { ...attachment };
+					resolvedAttachedContext[i] = attachment;
 				}
 			});
 
@@ -129,6 +124,8 @@ export class ChatVariablesService implements IAideAgentVariablesService {
 					id: 'vscode.editor.selection',
 					name: basename(model.uri.fsPath),
 					value: { uri: model.uri, range },
+					isFile: true,
+					isDynamic: true,
 				});
 			}
 		}
@@ -151,7 +148,9 @@ export class ChatVariablesService implements IAideAgentVariablesService {
 			return {
 				id: 'vscode.file.pinnedContext',
 				name: basename(model.uri.fsPath),
-				value: { uri: model.uri, range }
+				value: { uri: model.uri, range },
+				isFile: true,
+				isDynamic: true,
 			};
 		});
 
@@ -169,7 +168,9 @@ export class ChatVariablesService implements IAideAgentVariablesService {
 						resolvedAttachedContext.push({
 							id: 'vscode.file',
 							name: basename(model.uri.fsPath),
-							value: { uri: model.uri, range }
+							value: { uri: model.uri, range },
+							isFile: true,
+							isDynamic: true,
 						});
 					}
 				}

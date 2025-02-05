@@ -467,9 +467,13 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 
 		if (!isFiltered) {
 			if (isRequestVM(element) && element.variables.length) {
-				const newPart = this.renderAttachments(element.variables, element.contentReferences, templateData);
+				// TODO(@ghostwriternr): Pass an empty working set for now
+				const newPart = this.renderAttachments(element.variables, element.contentReferences, [], templateData);
 				if (newPart) {
-					templateData.value.appendChild(newPart.domNode);
+					if (newPart.domNode) {
+						// p has a :last-child rule for margin
+						templateData.value.appendChild(newPart.domNode);
+					}
 					templateData.elementDisposables.add(newPart);
 				}
 			}
@@ -725,12 +729,8 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 		return part;
 	}
 
-	private renderAttachments(variables: IChatRequestVariableEntry[], contentReferences: ReadonlyArray<IChatContentReference> | undefined, templateData: IChatListItemTemplate) {
-		const attachmentPart = this.instantiationService.createInstance(ChatAttachmentsContentPart, variables, contentReferences);
-		attachmentPart.addDisposable(attachmentPart.onDidChangeHeight(() => {
-			this.updateItemHeight(templateData);
-		}));
-		return attachmentPart;
+	private renderAttachments(variables: IChatRequestVariableEntry[], contentReferences: ReadonlyArray<IChatContentReference> | undefined, workingSet: ReadonlyArray<URI> | undefined, templateData: IChatListItemTemplate) {
+		return this.instantiationService.createInstance(ChatAttachmentsContentPart, variables, contentReferences, workingSet, undefined);
 	}
 
 	private renderTextEdit(context: IChatContentPartRenderContext, chatTextEdit: IChatTextEditGroup, templateData: IChatListItemTemplate): IChatContentPart {

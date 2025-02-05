@@ -607,7 +607,8 @@ class AddFileCompletionEntryAction extends Action2 {
 			new ReferenceArgument(widget, {
 				id: 'vscode.file',
 				range: replace,
-				data: { uri: context.resource, range }
+				data: { uri: context.resource, range },
+				isFile: true,
 			})
 		);
 	}

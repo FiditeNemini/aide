@@ -511,7 +511,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 						dom.h('.aideagent-input-toolbars@inputToolbars'),
 					]),
 				]),
-				dom.h('.aideagent-attached-context@attachedContextContainer'),
+				dom.h('.chat-attached-context@attachedContextContainer'),
 				dom.h('.interactive-input-followups@followupsContainer'),
 				dom.h('.interactive-input-status-message@statusMessageContainer', [
 					dom.h('.model-config@modelConfig'),
@@ -525,7 +525,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 				dom.h('.chat-editing-session@chatEditingSessionWidgetContainer'),
 				dom.h('.interactive-input-and-side-toolbar@inputAndSideToolbar', [
 					dom.h('.chat-input-container@inputContainer', [
-						dom.h('.aideagent-attached-context@attachedContextContainer'),
+						dom.h('.chat-attached-context@attachedContextContainer'),
 						dom.h('.chat-editor-container@editorContainer'),
 						dom.h('.aideagent-input-toolbars@inputToolbars'),
 					]),
@@ -898,7 +898,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 
 		const attachmentInitPromises: Promise<void>[] = [];
 		for (const [index, attachment] of attachments) {
-			const widget = dom.append(container, $('.aideagent-attached-context-attachment.show-file-icons'));
+			const widget = dom.append(container, $('.chat-attached-context-attachment.show-file-icons'));
 			const label = this._contextResourceLabels.create(widget, { supportIcons: true, hoverDelegate, hoverTargetOverride: widget });
 
 			let ariaLabel: string | undefined;

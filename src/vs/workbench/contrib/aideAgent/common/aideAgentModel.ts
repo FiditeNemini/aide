@@ -16,7 +16,7 @@ import { URI, UriComponents, UriDto, isUriComponents } from '../../../../base/co
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { IOffsetRange, OffsetRange } from '../../../../editor/common/core/offsetRange.js';
 import { IRange } from '../../../../editor/common/core/range.js';
-import { TextEdit } from '../../../../editor/common/languages.js';
+import { Location, SymbolKind, TextEdit } from '../../../../editor/common/languages.js';
 import { localize } from '../../../../nls.js';
 import { IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
@@ -37,7 +37,7 @@ export function isResponseModel(item: unknown): item is IChatResponseModel {
 	return !!item && typeof (item as IChatResponseModel).setVote !== 'undefined';
 }
 
-export interface IChatRequestVariableEntry {
+export interface IBaseChatRequestVariableEntry {
 	id: string;
 	fullName?: string;
 	icon?: ThemeIcon;
@@ -48,12 +48,35 @@ export interface IChatRequestVariableEntry {
 	references?: IChatContentReference[];
 	mimeType?: string;
 
-	// TODO are these just a 'kind'?
+	// TODO these represent different kinds, should be extracted to new interfaces with kind tags
+	kind?: never;
+	/**
+	 * True if the variable has a value vs being a reference to a variable
+	 */
 	isDynamic?: boolean;
 	isFile?: boolean;
 	isDirectory?: boolean;
 	isTool?: boolean;
 	isImage?: boolean;
+}
+
+export interface ISymbolVariableEntry extends Omit<IBaseChatRequestVariableEntry, 'kind'> {
+	readonly kind: 'symbol';
+	readonly isDynamic: true;
+	readonly value: Location;
+	readonly symbolKind: SymbolKind;
+}
+
+export interface ILinkVariableEntry extends Omit<IBaseChatRequestVariableEntry, 'kind'> {
+	readonly kind: 'link';
+	readonly isDynamic: true;
+	readonly value: URI;
+}
+
+export type IChatRequestVariableEntry = ISymbolVariableEntry | ILinkVariableEntry | IBaseChatRequestVariableEntry;
+
+export function isLinkVariableEntry(obj: IChatRequestVariableEntry): obj is ILinkVariableEntry {
+	return obj.kind === 'link';
 }
 
 export interface IChatRequestVariableData {

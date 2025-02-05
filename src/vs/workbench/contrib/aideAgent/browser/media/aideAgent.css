@@ -990,14 +990,14 @@ have to be updated for changes to the rules above, or to support more deeply nes
 	color: var(--vscode-interactive-session-foreground);
 }
 
-.aideagent-attached-context .aideagent-attached-context-attachment .monaco-icon-name-container.warning,
-.aideagent-attached-context .aideagent-attached-context-attachment .monaco-icon-suffix-container.warning,
+.chat-attached-context .chat-attached-context-attachment .monaco-icon-name-container.warning,
+.chat-attached-context .chat-attached-context-attachment .monaco-icon-suffix-container.warning,
 .chat-used-context-list .monaco-icon-name-container.warning,
 .chat-used-context-list .monaco-icon-suffix-container.warning {
 	color: var(--vscode-notificationsWarningIcon-foreground);
 }
 
-.aideagent-attached-context .aideagent-attached-context-attachment.show-file-icons.warning {
+.chat-attached-context .chat-attached-context-attachment.show-file-icons.warning {
 	border-color: var(--vscode-notificationsWarningIcon-foreground);
 }
 
@@ -1030,25 +1030,19 @@ have to be updated for changes to the rules above, or to support more deeply nes
 	padding: 8px 0 0 0
 }
 
-.interactive-session .aideagent-attached-context {
-	display: flex;
-	flex-direction: column;
-	gap: 2px;
-}
-
-.interactive-session .aideagent-attached-context .aideagent-attached-context-attachment {
+.interactive-session .chat-attached-context .chat-attached-context-attachment {
 	display: flex;
 	gap: 4px;
 	overflow: hidden;
 	font-size: 11px;
-	padding: 0 4px 0 2px;
+	padding: 0 4px 0 4px;
 	border: 1px solid var(--vscode-chat-requestBorder, var(--vscode-input-background, transparent));
 	border-radius: 4px;
 	height: 18px;
 	max-width: 100%;
 }
 
-.interactive-session .aideagent-attached-context .aideagent-attached-context-attachment .monaco-button {
+.interactive-session .chat-attached-context .chat-attached-context-attachment .monaco-button {
 	display: flex;
 	align-items: center;
 	margin-top: -2px;
@@ -1059,12 +1053,12 @@ have to be updated for changes to the rules above, or to support more deeply nes
 	outline-offset: -4px;
 }
 
-.interactive-session .aideagent-attached-context .aideagent-attached-context-attachment .monaco-button:hover {
+.interactive-session .chat-attached-context .chat-attached-context-attachment .monaco-button:hover {
 	cursor: pointer;
 	background: var(--vscode-toolbar-hoverBackground);
 }
 
-.interactive-session .aideagent-attached-context .aideagent-attached-context-attachment .monaco-icon-label-container {
+.interactive-session .chat-attached-context .chat-attached-context-attachment .monaco-icon-label-container {
 	display: flex;
 
 	.monaco-icon-suffix-container {
@@ -1073,32 +1067,31 @@ have to be updated for changes to the rules above, or to support more deeply nes
 	}
 }
 
-.interactive-session .aideagent-attached-context .aideagent-attached-context-attachment .monaco-icon-label-container .monaco-highlighted-label {
+.interactive-session .chat-attached-context .chat-attached-context-attachment .monaco-icon-label-container .monaco-highlighted-label {
 	display: flex !important;
 	align-items: center !important;
 }
 
-.interactive-session .aideagent-attached-context .aideagent-attached-context-attachment .monaco-icon-label .monaco-button.codicon.codicon-close,
-.interactive-session .aideagent-attached-context .aideagent-attached-context-attachment .monaco-button.codicon.codicon-close {
+.interactive-session .chat-attached-context .chat-attached-context-attachment .monaco-icon-label .monaco-button.codicon.codicon-close,
+.interactive-session .chat-attached-context .chat-attached-context-attachment .monaco-button.codicon.codicon-close {
 	color: var(--vscode-descriptionForeground);
 	cursor: pointer;
 }
 
-.interactive-session .aideagent-attached-context .aideagent-attached-context-attachment .monaco-icon-label .codicon {
+.interactive-session .chat-attached-context .chat-attached-context-attachment .monaco-icon-label .codicon {
 	padding-left: 4px;
 	font-size: 100% !important;
 }
 
-.interactive-session .aideagent-attached-context {
-	padding: 4px 0 4px 0;
+.interactive-session .chat-attached-context {
+	padding: 0 0 4px 0;
 	display: flex;
 	gap: 4px;
 	flex-wrap: wrap;
 	cursor: default;
 }
 
-/* .interactive-session .interactive-input-part.compact .aideagent-attached-context { */
-.interactive-session .interactive-input-part .aideagent-attached-context {
+.interactive-session .interactive-input-part.compact .chat-attached-context {
 	padding-top: 8px;
 	padding-bottom: 0px;
 	display: flex;
@@ -1106,86 +1099,53 @@ have to be updated for changes to the rules above, or to support more deeply nes
 	flex-wrap: wrap;
 }
 
-.interactive-session .interactive-input-part .aideagent-attached-context .aideagent-attached-context-attachment .monaco-button.codicon.codicon-close {
-	margin-left: auto;
-}
-
-.interactive-session .aideagent-item-container.aideagent-request .aideagent-attached-context {
+.interactive-session .aideagent-item-container.aideagent-request .chat-attached-context {
 	margin-top: -8px;
 }
 
-.interactive-session .aideagent-item-container.interactive-item-compact.aideagent-request .aideagent-attached-context {
+.interactive-session .aideagent-item-container.interactive-item-compact.aideagent-request .chat-attached-context {
 	margin-top: -4px;
 }
 
-.interactive-session .aideagent-item-container.editing-session.aideagent-request .aideagent-attached-context {
+.interactive-session .aideagent-item-container.editing-session.aideagent-request .chat-attached-context {
 	margin-top: 0px;
 }
 
-.interactive-session .aideagent-attached-context .aideagent-attached-context-attachment.implicit {
+.interactive-session .chat-attached-context .chat-attached-context-attachment.implicit {
 	display: flex;
 	gap: 4px;
 }
 
-.interactive-session .aideagent-attached-context .aideagent-attached-context-attachment.implicit .chat-implicit-hint {
+.interactive-session .chat-attached-context .chat-attached-context-attachment.implicit .chat-implicit-hint {
 	opacity: 0.7;
 	font-size: .9em;
 }
 
-.interactive-session .aideagent-attached-context .aideagent-attached-context-attachment.implicit.disabled .chat-implicit-hint {
+.interactive-session .chat-attached-context .chat-attached-context-attachment.implicit.disabled .chat-implicit-hint {
 	font-style: italic;
 }
 
-.interactive-session .aideagent-attached-context .aideagent-attached-context-attachment.implicit.disabled {
+.interactive-session .chat-attached-context .chat-attached-context-attachment.implicit.disabled {
 	border-style: dashed;
 }
 
-.interactive-session .aideagent-attached-context .aideagent-attached-context-attachment.implicit.disabled:focus {
+.interactive-session .chat-attached-context .chat-attached-context-attachment.implicit.disabled:focus {
 	outline: none;
 	border-color: var(--vscode-focusBorder);
 }
 
-.interactive-session .aideagent-attached-context .aideagent-attached-context-attachment.implicit.disabled .monaco-icon-label .label-name {
+.interactive-session .chat-attached-context .chat-attached-context-attachment.implicit.disabled .monaco-icon-label .label-name {
 	text-decoration: line-through;
 	font-style: italic;
 	opacity: 0.8;
 }
 
-.interactive-session .aideagent-attached-context .aideagent-attached-context-attachment .monaco-icon-label::before {
+.interactive-session .chat-attached-context .chat-attached-context-attachment .monaco-icon-label::before {
 	padding: 0 2px 0 0;
 }
 
-.interactive-session .aideagent-attached-context .aideagent-attached-context-attachment .monaco-icon-label.predefined-file-icon::before {
+.interactive-session .chat-attached-context .chat-attached-context-attachment .monaco-icon-label.predefined-file-icon::before {
 	padding: 0 0 0 2px;
-}
-
-.interactive-session .aideagent-attached-context .aideagent-attachments-list .monaco-list {
-	border: none;
-	border-radius: 4px;
-	width: auto;
-}
-
-.interactive-session .aideagent-item-container.aideagent-request .aideagent-attached-context .aideagent-attached-context-attachment {
-	padding-right: 6px;
-}
-
-.interactive-session .aideagent-attached-context.aideagent-attachments-list-collapsed .aideagent-attachments-list {
-	display: none;
-}
-
-.interactive-session .aideagent-attached-context .aideagent-attachments-list .monaco-list .monaco-list-row {
-	border-radius: 2px;
-}
-
-.interactive-session .aideagent-attached-context .aideagent-attachments-list .monaco-list .monaco-list-row .monaco-icon-label .label-name .monaco-highlighted-label {
-	display: flex;
-	align-items: center;
-}
-
-.interactive-session .aideagent-attached-context .aideagent-attachments-list .monaco-list .monaco-list-row .monaco-icon-label .label-name .monaco-highlighted-label .codicon {
-	font-size: 13px;
-	padding-left: 3px;
-	padding-right: 2px;
 }
 
 .interactive-session-followups {
@@ -1371,7 +1331,7 @@ have to be updated for changes to the rules above, or to support more deeply nes
 .interactive-response-progress-tree,
 .aideagent-item-container .chat-notification-widget,
 .interactive-session .chat-used-context-list,
-.interactive-session .aideagent-attached-context .aideagent-attachments-list {
+.interactive-session .chat-attached-context .aideagent-attachments-list {
 	border: 1px solid var(--vscode-chat-requestBorder);
 	border-radius: 4px;
 	margin-bottom: 8px;
@@ -1452,7 +1412,7 @@ have to be updated for changes to the rules above, or to support more deeply nes
 }
 
 .interactive-session .chat-used-context .aideagent-used-context-label .monaco-button .codicon,
-.interactive-session .aideagent-attached-context .aideagent-attachments-label .monaco-button .codicon {
+.interactive-session .chat-attached-context .aideagent-attachments-label .monaco-button .codicon {
 	margin: 0 0 0 4px;
 }
 
@@ -1531,7 +1491,7 @@ have to be updated for changes to the rules above, or to support more deeply nes
 	display: block;
 }
 
-.aideagent-attached-context-attachment .chat-attached-context-pill {
+.chat-attached-context-attachment .chat-attached-context-pill {
 	font-size: 12px;
 	display: inline-flex;
 	align-items: center;
@@ -1543,18 +1503,18 @@ have to be updated for changes to the rules above, or to support more deeply nes
 	border: none;
 }
 
-.aideagent-attached-context-attachment .attachment-additional-info {
+.chat-attached-context-attachment .attachment-additional-info {
 	opacity: 0.7;
 	font-size: .9em;
 }
 
-.aideagent-attached-context-attachment .chat-attached-context-pill-image {
+.chat-attached-context-attachment .chat-attached-context-pill-image {
 	width: 14px;
 	height: 14px;
 	border-radius: 2px;
 }
 
-.aideagent-attached-context-attachment .chat-attached-context-custom-text {
+.chat-attached-context-attachment .chat-attached-context-custom-text {
 	vertical-align: middle;
 	user-select: none;
 	outline: none;
