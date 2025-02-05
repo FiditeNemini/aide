@@ -512,9 +512,9 @@ export class AideAgentSessionProvider implements vscode.AideSessionParticipant {
 				await this.reportAgentEventsToChat(sessionId, responseStream, onError);
 			}
 			// This we use to track agent usage - only hit this if we didn't fail
-			if (!errored) {
-				this.csEventHandler.handleNewRequest(event.mode === vscode.AideAgentMode.Agentic ? 'AgenticRequest' : 'ChatRequest');
-			}
+			// if (!errored) {
+			// 	this.csEventHandler.handleNewRequest(event.mode === vscode.AideAgentMode.Agentic ? 'AgenticRequest' : 'ChatRequest');
+			// }
 		} catch (error) {
 			if (!hasRetried && typeof error?.message === 'string' && error.message.includes('401')) {
 				console.log('Got a 401 error from the Sidecar. Retrying once...');

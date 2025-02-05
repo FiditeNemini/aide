@@ -31,7 +31,7 @@ export class CSEventHandler implements vscode.CSEventHandler, vscode.Disposable 
 		if (vscode.env.uriScheme === 'aide') {
 			this._subscriptionsAPIBase = 'https://api.codestory.ai';
 		} else {
-			this._subscriptionsAPIBase = 'http://localhost:3333'; // @g-danna needs to go back to staging-api...
+			this._subscriptionsAPIBase = 'https://staging-api.codestory.ai'; // Change this to 'http://localhost:3333' for local development
 		}
 	}
 

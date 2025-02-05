@@ -57,7 +57,7 @@ export class CSAuthenticationService extends Themable implements ICSAuthenticati
 
 		const isDevelopment = !this.environmentService.isBuilt || this.environmentService.isExtensionDevelopment;
 		if (isDevelopment) {
-			this._subscriptionsAPIBase = 'http://localhost:3333'; // @g-danna need to change back to 'https://staging-api.codestory.ai'
+			this._subscriptionsAPIBase = 'https://staging-api.codestory.ai'; // Change this to 'http://localhost:3333' for local development
 			this._websiteBase = 'https://staging.aide.dev';
 		} else {
 			this._subscriptionsAPIBase = 'https://api.codestory.ai';
