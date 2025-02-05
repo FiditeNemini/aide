@@ -156,6 +156,7 @@ export interface IChatResponseModel {
 	shouldBeRemovedOnSend: boolean;
 	/** A stale response is one that has been persisted and rehydrated, so e.g. Commands that have their arguments stored in the EH are gone. */
 	readonly isStale: boolean;
+	readonly hasSideEffects: boolean;
 	readonly vote: ChatAgentVoteDirection | undefined;
 	readonly voteDownReason: ChatAgentVoteDownReason | undefined;
 	readonly followups?: IChatFollowup[] | undefined;
@@ -482,6 +483,11 @@ export class ChatResponseModel extends Disposable implements IChatResponseModel 
 		return this._isStale;
 	}
 
+	private _hasSideEffects: boolean = false;
+	public get hasSideEffects(): boolean {
+		return this._hasSideEffects;
+	}
+
 	constructor(
 		_response: IMarkdownString | ReadonlyArray<IMarkdownString | IChatResponseProgressFileTreeData | IChatContentInlineReference | IChatAgentMarkdownContentWithVulnerability | IChatResponseCodeblockUriPart>,
 		private _session: ChatModel,
@@ -512,6 +518,16 @@ export class ChatResponseModel extends Disposable implements IChatResponseModel 
 	 */
 	updateContent(responsePart: IChatProgressResponseContent | IChatTextEdit, quiet?: boolean) {
 		this._response.updateContent(responsePart, quiet);
+
+		// Update side-effects
+		if (responsePart.kind === 'textEdit') {
+			this._hasSideEffects = true;
+		} else if (responsePart.kind === 'markdownContent') {
+			const newContent = responsePart.content;
+			if (newContent.value.toLowerCase().startsWith('running command')) {
+				this._hasSideEffects = true;
+			}
+		}
 	}
 
 	/**

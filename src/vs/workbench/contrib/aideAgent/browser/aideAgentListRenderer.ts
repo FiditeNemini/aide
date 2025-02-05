@@ -27,7 +27,7 @@ import { IContextKeyService } from '../../../../platform/contextkey/common/conte
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ServiceCollection } from '../../../../platform/instantiation/common/serviceCollection.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { CONTEXT_CHAT_RESPONSE_SUPPORT_ISSUE_REPORTING, CONTEXT_REQUEST, CONTEXT_RESPONSE, CONTEXT_RESPONSE_DETECTED_AGENT_COMMAND, CONTEXT_RESPONSE_ERROR, CONTEXT_RESPONSE_FILTERED, CONTEXT_RESPONSE_VOTE } from '../common/aideAgentContextKeys.js';
+import { CONTEXT_CHAT_RESPONSE_HAS_SIDE_EFFECTS, CONTEXT_CHAT_RESPONSE_SUPPORT_ISSUE_REPORTING, CONTEXT_REQUEST, CONTEXT_RESPONSE, CONTEXT_RESPONSE_DETECTED_AGENT_COMMAND, CONTEXT_RESPONSE_ERROR, CONTEXT_RESPONSE_FILTERED, CONTEXT_RESPONSE_VOTE } from '../common/aideAgentContextKeys.js';
 import { IChatRequestVariableEntry, IChatTextEditGroup } from '../common/aideAgentModel.js';
 import { chatSubcommandLeader } from '../common/aideAgentParserTypes.js';
 import { ChatAgentVoteDirection, IAideAgentToolTypeError, IChatConfirmation, IChatContentReference, IChatFollowup, IChatMarkdownContent, IChatTask, IChatTreeData } from '../common/aideAgentService.js';
@@ -284,6 +284,7 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 		if (isResponseVM(element)) {
 			CONTEXT_CHAT_RESPONSE_SUPPORT_ISSUE_REPORTING.bindTo(templateData.contextKeyService).set(!!element.agent?.metadata.supportIssueReporting);
 			CONTEXT_RESPONSE_VOTE.bindTo(templateData.contextKeyService).set(element.vote === ChatAgentVoteDirection.Up ? 'up' : element.vote === ChatAgentVoteDirection.Down ? 'down' : '');
+			CONTEXT_CHAT_RESPONSE_HAS_SIDE_EFFECTS.bindTo(templateData.contextKeyService).set(element.model.hasSideEffects);
 		} else {
 			CONTEXT_RESPONSE_VOTE.bindTo(templateData.contextKeyService).set('');
 		}
@@ -299,17 +300,28 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 		templateData.rowContainer.classList.toggle('aideagent-request', isRequestVM(element));
 		templateData.rowContainer.classList.toggle('interactive-response', isResponseVM(element));
 		templateData.rowContainer.classList.toggle('show-detail-progress', isResponseVM(element) && element.isFirst && !element.isComplete && !element.progressMessages.length);
-		templateData.username.textContent = element.username;
+		if (isResponseVM(element) && !element.isFirst && !element.model.hasSideEffects) {
+			// Exchanges with no side-effects and not the first response are hidden.
+			templateData.header.classList.toggle('hidden', true);
+		} else if (isResponseVM(element) && !element.isFirst) {
+			// Exchanges with side-effects and not the first response are shown, but without Aide's name.
+			templateData.header.classList.toggle('hidden', false);
+			templateData.username.textContent = '';
+		} else if (isResponseVM(element) && element.isFirst && element.model.hasSideEffects) {
+			// Exchanges with side-effects and the first response are hidden because the user can revert from the request.
+			templateData.header.classList.toggle('hidden', false);
+			templateData.username.textContent = '';
+		} else {
+			// Requests always show the username and actions.
+			templateData.header.classList.toggle('hidden', false);
+			templateData.username.textContent = element.username;
+		}
+
 		/*
 		if (!this.rendererOptions.noHeader) {
 			this.renderAvatar(element, templateData);
 		}
 		*/
-		if (isResponseVM(element) && !element.isFirst) {
-			templateData.header.classList.toggle('hidden', true);
-		} else {
-			templateData.header.classList.toggle('hidden', false);
-		}
 
 		dom.clearNode(templateData.detail);
 		if (isResponseVM(element)) {
