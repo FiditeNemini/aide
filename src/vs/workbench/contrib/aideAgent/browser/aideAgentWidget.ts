@@ -534,6 +534,7 @@ export class ChatWidget extends Disposable implements IChatWidget {
 						return element.dataId +
 							// Ensure re-rendering an element once slash commands are loaded, so the colorization can be applied.
 							`${(isRequestVM(element)) /* && !!this.lastSlashCommands ? '_scLoaded' : '' */}` +
+							`${(isResponseVM(element)) && element.isFirst ? `_first` : ''}` +
 							`${(isResponseVM(element)) && element.isLast ? `_last` : ''}` +
 							// If a response is in the process of progressive rendering, we need to ensure that it will
 							// be re-rendered so progressive rendering is restarted, even if the model wasn't updated.

@@ -170,6 +170,7 @@ export interface IChatResponseViewModel {
 	readonly isComplete: boolean;
 	readonly isCanceled: boolean;
 	readonly isStale: boolean;
+	isFirst: boolean;
 	isLast: boolean;
 	readonly vote: ChatAgentVoteDirection | undefined;
 	readonly voteDownReason: ChatAgentVoteDownReason | undefined;
@@ -217,6 +218,13 @@ export class ChatViewModel extends Disposable implements IChatViewModel {
 			}
 		}
 		this._items.push(item);
+
+		// Set isFirst for response items based on previous item
+		if (isResponseVM(item)) {
+			// Get the second-last item
+			const previousItem = this._items[this._items.length - 2];
+			item.isFirst = !!previousItem && isRequestVM(previousItem);
+		}
 	}
 
 	private _inputPlaceholder: string | undefined = undefined;
@@ -418,6 +426,7 @@ export class ChatResponseViewModel extends Disposable implements IChatResponseVi
 		return this._model.id;
 	}
 
+	isFirst = false;
 	isLast = true;
 
 	get dataId() {

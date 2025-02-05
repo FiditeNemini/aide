@@ -65,6 +65,7 @@ interface IChatListItemTemplate {
 	currentElement?: ChatTreeItem;
 	renderedParts?: IChatContentPart[];
 	readonly rowContainer: HTMLElement;
+	readonly header: HTMLElement;
 	readonly titleToolbar?: MenuWorkbenchToolBar;
 	readonly avatarContainer: HTMLElement;
 	readonly username: HTMLElement;
@@ -272,7 +273,7 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 			}));
 		}
 
-		const template: IChatListItemTemplate = { avatarContainer, username, detail, value, rowContainer, elementDisposables, templateDisposables, contextKeyService, instantiationService: scopedInstantiationService, titleToolbar };
+		const template: IChatListItemTemplate = { header, avatarContainer, username, detail, value, rowContainer, elementDisposables, templateDisposables, contextKeyService, instantiationService: scopedInstantiationService, titleToolbar };
 		return template;
 	}
 
@@ -307,13 +308,18 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 
 		templateData.rowContainer.classList.toggle('aideagent-request', isRequestVM(element));
 		templateData.rowContainer.classList.toggle('interactive-response', isResponseVM(element));
-		templateData.rowContainer.classList.toggle('show-detail-progress', isResponseVM(element) && element.isLast && !element.isComplete && !element.progressMessages.length);
+		templateData.rowContainer.classList.toggle('show-detail-progress', isResponseVM(element) && element.isFirst && !element.isComplete && !element.progressMessages.length);
 		templateData.username.textContent = element.username;
 		/*
 		if (!this.rendererOptions.noHeader) {
 			this.renderAvatar(element, templateData);
 		}
 		*/
+		if (isResponseVM(element) && !element.isFirst) {
+			templateData.header.classList.toggle('hidden', true);
+		} else {
+			templateData.header.classList.toggle('hidden', false);
+		}
 
 		dom.clearNode(templateData.detail);
 		if (isResponseVM(element)) {
