@@ -146,6 +146,7 @@ export class ChatWidget extends Disposable implements IChatWidget {
 	private container!: HTMLElement;
 	private welcomeMessageContainer!: HTMLElement;
 	private persistedWelcomeMessage: IChatWelcomeMessageContent | undefined;
+	private hiddenExchangesMessageContainer!: HTMLElement;
 
 	private bodyDimension: dom.Dimension | undefined;
 	private visibleChangeCount = 0;
@@ -433,6 +434,7 @@ export class ChatWidget extends Disposable implements IChatWidget {
 			this.scrollLock = true;
 			this.scrollToEnd();
 		}));
+		this.hiddenExchangesMessageContainer = dom.append(this.container, $(`.hidden-exchanges-container`));
 
 		this._register(this.editorOptions.onDidChange(() => this.onDidStyleChange()));
 		this.onDidStyleChange();
@@ -523,6 +525,7 @@ export class ChatWidget extends Disposable implements IChatWidget {
 				});
 
 			this.renderWelcomeViewContentIfNeeded();
+			this.renderHiddenExchangesIfNeeded();
 
 			this._onWillMaybeChangeHeight.fire();
 
@@ -553,6 +556,22 @@ export class ChatWidget extends Disposable implements IChatWidget {
 			if (!skipDynamicLayout && this._dynamicMessageLayoutData) {
 				this.layoutDynamicChatTreeItemMode();
 			}
+		}
+	}
+
+	private renderHiddenExchangesIfNeeded() {
+		let hiddenCount = 0;
+		if (this._viewModel?.sessionId) {
+			const exchanges = this.chatService.getSession(this._viewModel.sessionId)?.getExchanges() ?? [];
+			hiddenCount = exchanges.filter(exchange => exchange.shouldBeRemovedOnSend).length;
+		}
+
+		if (hiddenCount > 0) {
+			this.hiddenExchangesMessageContainer.textContent = localize('hiddenExchanges', "{0} exchanges hidden", hiddenCount);
+			dom.show(this.hiddenExchangesMessageContainer);
+		} else {
+			this.hiddenExchangesMessageContainer.textContent = '';
+			dom.hide(this.hiddenExchangesMessageContainer);
 		}
 	}
 
@@ -1142,8 +1161,9 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		this.inputPart.layout(inputPartMaxHeight, width);
 		const inputPartHeight = this.inputPart.inputPartHeight;
 		const lastElementVisible = this.tree.scrollTop + this.tree.renderHeight >= this.tree.scrollHeight - 2;
+		const hiddenExchangesMessageHeight = this.hiddenExchangesMessageContainer.offsetHeight;
 
-		const listHeight = Math.max(0, height - inputPartHeight);
+		const listHeight = Math.max(0, height - inputPartHeight - hiddenExchangesMessageHeight);
 		if (!this.viewOptions.autoScroll) {
 			this.listContainer.style.setProperty('--chat-current-response-min-height', listHeight * .75 + 'px');
 		}

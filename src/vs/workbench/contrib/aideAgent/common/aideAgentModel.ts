@@ -637,6 +637,9 @@ export interface ISerializableChatRequestData {
 	message: string | IParsedChatRequest; // string => old format
 	/** Is really like "prompt data". This is the message in the format in which the agent gets it + variable values. */
 	variableData: IChatRequestVariableData;
+
+	/**Old, persisted name for shouldBeRemovedOnSend */
+	isHidden: boolean;
 }
 
 export interface ISerializableChatResponseData {
@@ -654,6 +657,8 @@ export interface ISerializableChatResponseData {
 	usedContext?: IChatUsedContext;
 	contentReferences?: ReadonlyArray<IChatContentReference>;
 	codeCitations?: ReadonlyArray<IChatCodeCitation>;
+	/**Old, persisted name for shouldBeRemovedOnSend */
+	isHidden: boolean;
 }
 
 export type ISerializableExchange = ISerializableChatRequestData | ISerializableChatResponseData;
@@ -976,7 +981,8 @@ export class ChatModel extends Disposable implements IChatModel {
 
 					// Old messages don't have variableData, or have it in the wrong (non-array) shape
 					const variableData: IChatRequestVariableData = this.reviveVariableData(raw.variableData);
-					return new ChatRequestModel(this, parsedRequest, variableData);
+					const request = new ChatRequestModel(this, parsedRequest, variableData);
+					request.shouldBeRemovedOnSend = !!raw.isHidden;
 				} else if (raw.type === 'response') {
 					if (raw.response || raw.result || (raw as any).responseErrorDetails) {
 						const agent = (raw.agent && 'metadata' in raw.agent) ? // Check for the new format, ignore entries in the old format
@@ -993,6 +999,7 @@ export class ChatModel extends Disposable implements IChatModel {
 						if (raw.usedContext) { // @ulugbekna: if this's a new vscode sessions, doc versions are incorrect anyway?
 							response.applyReference(revive(raw.usedContext));
 						}
+						response.shouldBeRemovedOnSend = !!raw.isHidden;
 
 						raw.contentReferences?.forEach(r => response.applyReference(revive(r)));
 						raw.codeCitations?.forEach(c => response.applyCodeCitation(revive(c)));
@@ -1195,6 +1202,12 @@ export class ChatModel extends Disposable implements IChatModel {
 		this.plan.updateSteps(progress);
 	}
 
+	disableExchange(id: string, _reason: ChatExchangeRemovalReason = ChatExchangeRemovalReason.Removal): void {
+		const index = this._exchanges.findIndex(exchange => exchange.id === id);
+		const exchange = this._exchanges[index];
+		exchange.shouldBeRemovedOnSend = true;
+	}
+
 	removeExchange(id: string, reason: ChatExchangeRemovalReason = ChatExchangeRemovalReason.Removal): void {
 		const index = this._exchanges.findIndex(exchange => exchange.id === id);
 		const exchange = this._exchanges[index];
@@ -1260,7 +1273,8 @@ export class ChatModel extends Disposable implements IChatModel {
 					return {
 						type: 'request',
 						message,
-						variableData: r.variableData
+						variableData: r.variableData,
+						isHidden: r.shouldBeRemovedOnSend,
 					};
 				} else if (isResponseModel(r)) {
 					const agent = r.agent;
@@ -1289,7 +1303,8 @@ export class ChatModel extends Disposable implements IChatModel {
 						slashCommand: r.slashCommand,
 						usedContext: r.usedContext,
 						contentReferences: r.contentReferences,
-						codeCitations: r.codeCitations
+						codeCitations: r.codeCitations,
+						isHidden: r.shouldBeRemovedOnSend,
 					};
 				} else {
 					// TODO (g-danna) is it a good idea to throw an error here?

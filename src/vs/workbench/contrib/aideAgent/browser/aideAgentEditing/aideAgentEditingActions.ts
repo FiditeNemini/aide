@@ -325,15 +325,15 @@ registerAction2(class RemoveAction extends Action2 {
 		if (exchangeId) {
 			const chatExchanges = chatModel.getExchanges();
 			const itemIndex = chatExchanges.findIndex(exchange => exchange.id === exchangeId);
-			const exchangesToRemove = chatExchanges.slice(itemIndex);
+			const exchangesToDisable = chatExchanges.slice(itemIndex);
 
 			// Restore the snapshot to what it was before the exchange(s) that we deleted
 			const snapshotExchangeId = chatExchanges[itemIndex].id;
 			await session.restoreSnapshot(snapshotExchangeId);
 
 			// Remove the request and all that come after it
-			for (const exchange of exchangesToRemove) {
-				await chatService.removeExchange(item.sessionId, exchange.id);
+			for (const exchange of exchangesToDisable) {
+				await chatService.disableExchange(item.sessionId, exchange.id);
 			}
 		}
 	}

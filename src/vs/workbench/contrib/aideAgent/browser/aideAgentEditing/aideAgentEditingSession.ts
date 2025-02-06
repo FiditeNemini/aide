@@ -138,10 +138,10 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 		return linearHistoryIndex < linearHistory.length;
 	});
 
-	public hiddenRequestIds = derived<string[]>((r) => {
+	public hiddenExchangeIds = derived<string[]>((r) => {
 		const linearHistory = this._linearHistory.read(r);
 		const linearHistoryIndex = this._linearHistoryIndex.read(r);
-		return linearHistory.slice(linearHistoryIndex).map(s => s.requestId).filter((r): r is string => !!r);
+		return linearHistory.slice(linearHistoryIndex).map(s => s.exchangeId).filter((e): e is string => !!e);
 	});
 
 	private readonly _onDidChange = this._register(new Emitter<ChatEditingSessionChangeType>());
@@ -306,13 +306,13 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 		}
 	}
 
-	private _findSnapshot(requestId: string): IChatEditingSessionSnapshot | undefined {
-		return this._linearHistory.get().find(s => s.requestId === requestId);
+	private _findSnapshot(exchangeId: string): IChatEditingSessionSnapshot | undefined {
+		return this._linearHistory.get().find(s => s.exchangeId === exchangeId);
 	}
 
-	public createSnapshot(requestId: string | undefined): void {
-		const snapshot = this._createSnapshot(requestId);
-		if (requestId) {
+	public createSnapshot(exchangeId: string | undefined): void {
+		const snapshot = this._createSnapshot(exchangeId);
+		if (exchangeId) {
 			for (const [uri, data] of this._workingSet) {
 				if (data.state !== WorkingSetEntryState.Suggested) {
 					this._workingSet.set(uri, { state: WorkingSetEntryState.Sent, isMarkedReadonly: data.isMarkedReadonly });
@@ -331,24 +331,24 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 		}
 	}
 
-	private _createSnapshot(requestId: string | undefined): IChatEditingSessionSnapshot {
+	private _createSnapshot(exchangeId: string | undefined): IChatEditingSessionSnapshot {
 		const workingSet = new ResourceMap<WorkingSetDisplayMetadata>();
 		for (const [file, state] of this._workingSet) {
 			workingSet.set(file, state);
 		}
 		const entries = new ResourceMap<ISnapshotEntry>();
 		for (const entry of this._entriesObs.get()) {
-			entries.set(entry.modifiedURI, entry.createSnapshot(requestId));
+			entries.set(entry.modifiedURI, entry.createSnapshot(exchangeId));
 		}
 		return {
-			requestId,
+			exchangeId,
 			workingSet,
 			entries
 		};
 	}
 
-	public async getSnapshotModel(requestId: string, snapshotUri: URI): Promise<ITextModel | null> {
-		const entries = this._findSnapshot(requestId)?.entries;
+	public async getSnapshotModel(exchangeId: string, snapshotUri: URI): Promise<ITextModel | null> {
+		const entries = this._findSnapshot(exchangeId)?.entries;
 		if (!entries) {
 			return null;
 		}
@@ -361,23 +361,23 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 		return this._modelService.createModel(snapshotEntry.current, this._languageService.createById(snapshotEntry.languageId), snapshotUri, false);
 	}
 
-	public getSnapshot(requestId: string, uri: URI): ISnapshotEntry | undefined {
-		const snapshot = this._findSnapshot(requestId);
+	public getSnapshot(exchangeId: string, uri: URI): ISnapshotEntry | undefined {
+		const snapshot = this._findSnapshot(exchangeId);
 		const snapshotEntries = snapshot?.entries;
 		return snapshotEntries?.get(uri);
 	}
 
-	public getSnapshotUri(requestId: string, uri: URI): URI | undefined {
-		return this.getSnapshot(requestId, uri)?.snapshotUri;
+	public getSnapshotUri(exchangeId: string, uri: URI): URI | undefined {
+		return this.getSnapshot(exchangeId, uri)?.snapshotUri;
 	}
 
 	/**
 	 * A snapshot representing the state of the working set before a new request has been sent
 	 */
 	private _pendingSnapshot: IChatEditingSessionSnapshot | undefined;
-	public async restoreSnapshot(requestId: string | undefined): Promise<void> {
-		if (requestId !== undefined) {
-			const snapshot = this._findSnapshot(requestId);
+	public async restoreSnapshot(exchangeId: string | undefined): Promise<void> {
+		if (exchangeId !== undefined) {
+			const snapshot = this._findSnapshot(exchangeId);
 			if (snapshot) {
 				if (!this._pendingSnapshot) {
 					// Create and save a pending snapshot
@@ -666,7 +666,7 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 			return;
 		}
 		const previousSnapshot = linearHistory[newIndex];
-		await this.restoreSnapshot(previousSnapshot.requestId);
+		await this.restoreSnapshot(previousSnapshot.exchangeId);
 		this._linearHistoryIndex.set(newIndex, undefined);
 		this._updateRequestHiddenState();
 
@@ -682,14 +682,14 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 		if (!nextSnapshot) {
 			return;
 		}
-		await this.restoreSnapshot(nextSnapshot.requestId);
+		await this.restoreSnapshot(nextSnapshot.exchangeId);
 		this._linearHistoryIndex.set(newIndex, undefined);
 		this._updateRequestHiddenState();
 	}
 
 	private _updateRequestHiddenState() {
-		const hiddenRequestIds = this._linearHistory.get().slice(this._linearHistoryIndex.get()).map(s => s.requestId).filter((r): r is string => !!r);
-		this._chatService.getSession(this.chatSessionId)?.disableRequests(hiddenRequestIds);
+		const hiddenExchangeIds = this._linearHistory.get().slice(this._linearHistoryIndex.get()).map(s => s.exchangeId).filter((e): e is string => !!e);
+		this._chatService.getSession(this.chatSessionId)?.disableRequests(hiddenExchangeIds);
 	}
 
 	private async _acceptStreamingEditsStart(): Promise<void> {
@@ -843,7 +843,7 @@ class ChatEditingSessionStorage {
 				entriesMap.set(entry.resource, entry);
 			}
 			return ({
-				requestId: snapshot.requestId,
+				exchangeId: snapshot.exchangeId,
 				workingSet: deserializeResourceMap(snapshot.workingSet, (value) => value, new ResourceMap()),
 				entries: entriesMap
 			} satisfies IChatEditingSessionSnapshot);
@@ -857,7 +857,7 @@ class ChatEditingSessionStorage {
 				originalToCurrentEdit: OffsetEdit.fromJson(entry.originalToCurrentEdit),
 				state: entry.state,
 				snapshotUri: URI.parse(entry.snapshotUri),
-				telemetryInfo: { exchangeId: entry.telemetryInfo.requestId, agentId: entry.telemetryInfo.agentId, command: entry.telemetryInfo.command, sessionId: this.chatSessionId, result: undefined }
+				telemetryInfo: { exchangeId: entry.telemetryInfo.exchangeId, agentId: entry.telemetryInfo.agentId, command: entry.telemetryInfo.command, sessionId: this.chatSessionId, result: undefined }
 			} satisfies ISnapshotEntry;
 		};
 		try {
@@ -933,7 +933,7 @@ class ChatEditingSessionStorage {
 		};
 		const serializeChatEditingSessionSnapshot = (snapshot: IChatEditingSessionSnapshot) => {
 			return ({
-				requestId: snapshot.requestId,
+				exchangeId: snapshot.exchangeId,
 				workingSet: serializeResourceMap(snapshot.workingSet, value => value),
 				entries: Array.from(snapshot.entries.values()).map(serializeSnapshotEntry)
 			} satisfies IChatEditingSessionSnapshotDTO);
@@ -947,7 +947,7 @@ class ChatEditingSessionStorage {
 				originalToCurrentEdit: entry.originalToCurrentEdit.edits.map(edit => ({ pos: edit.replaceRange.start, len: edit.replaceRange.length, txt: edit.newText } satisfies ISingleOffsetEdit)),
 				state: entry.state,
 				snapshotUri: entry.snapshotUri.toString(),
-				telemetryInfo: { requestId: entry.telemetryInfo.exchangeId, agentId: entry.telemetryInfo.agentId, command: entry.telemetryInfo.command }
+				telemetryInfo: { exchangeId: entry.telemetryInfo.exchangeId, agentId: entry.telemetryInfo.agentId, command: entry.telemetryInfo.command }
 			} satisfies ISnapshotEntryDTO;
 		};
 
@@ -989,13 +989,13 @@ class ChatEditingSessionStorage {
 }
 
 export interface IChatEditingSessionSnapshot {
-	readonly requestId: string | undefined;
+	readonly exchangeId: string | undefined;
 	readonly workingSet: ResourceMap<WorkingSetDisplayMetadata>;
 	readonly entries: ResourceMap<ISnapshotEntry>;
 }
 
 interface IChatEditingSessionSnapshotDTO {
-	readonly requestId: string | undefined;
+	readonly exchangeId: string | undefined;
 	readonly workingSet: ResourceMapDTO<WorkingSetDisplayMetadata>;
 	readonly entries: ISnapshotEntryDTO[];
 }
@@ -1012,7 +1012,7 @@ interface ISnapshotEntryDTO {
 }
 
 interface IModifiedEntryTelemetryInfoDTO {
-	readonly requestId: string;
+	readonly exchangeId: string;
 	readonly agentId?: string;
 	readonly command?: string;
 }

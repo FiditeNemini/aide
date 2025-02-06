@@ -499,6 +499,14 @@ export class ChatService extends Disposable implements IAideAgentService {
 		}
 		*/
 
+		const exchanges = model.getExchanges();
+		for (let i = exchanges.length - 1; i >= 0; i -= 1) {
+			const exchange = exchanges[i];
+			if (exchange.shouldBeRemovedOnSend) {
+				this.removeExchange(sessionId, exchange.id);
+			}
+		}
+
 		const location = options?.location ?? model.initialLocation;
 		const attempt = options?.attempt ?? 0;
 		const defaultAgent = this.chatAgentService.getDefaultAgent(location)!;
@@ -726,7 +734,24 @@ export class ChatService extends Disposable implements IAideAgentService {
 		};
 	}
 
-	async removeExchange(sessionId: string, exchangeId: string): Promise<void> {
+	async disableExchange(sessionId: string, exchangeId: string): Promise<void> {
+		const model = this._sessionModels.get(sessionId);
+		if (!model) {
+			throw new Error(`Unknown session: ${sessionId}`);
+		}
+
+		await model.waitForInitialization();
+
+		const pendingRequest = this._pendingExchanges.get(sessionId);
+		if (pendingRequest?.exchangeId === exchangeId) {
+			pendingRequest.cancel();
+			this._pendingExchanges.deleteAndDispose(sessionId);
+		}
+
+		model.disableExchange(exchangeId);
+	}
+
+	private async removeExchange(sessionId: string, exchangeId: string): Promise<void> {
 		const model = this._sessionModels.get(sessionId);
 		if (!model) {
 			throw new Error(`Unknown session: ${sessionId}`);
