@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { SidecarApplyEditsRequest, SidecarApplyEditsResponse } from './types';
+import { SidecarApplyEditsRequest, SidecarApplyEditsResponse, SidecarOverwriteFileRequest } from './types';
 import * as vscode from 'vscode';
 
 /**

@@ -5,7 +5,7 @@
 import * as http from 'http';
 import { SidecarApplyEditsRequest, LSPDiagnostics, SidecarGoToDefinitionRequest, SidecarGoToImplementationRequest, SidecarGoToReferencesRequest, SidecarOpenFileToolRequest, LSPQuickFixInvocationRequest, SidecarQuickFixRequest, SidecarSymbolSearchRequest, SidecarInlayHintsRequest, SidecarGetOutlineNodesRequest, SidecarOutlineNodesWithContentRequest, EditedCodeStreamingRequest, SidecarRecentEditsRetrieverRequest, SidecarRecentEditsRetrieverResponse, SidecarCreateFileRequest, LSPFileDiagnostics, SidecarGetPreviousWordRangeRequest, SidecarDiagnosticsResponse, SidecarCreateNewExchangeRequest, SidecarUndoPlanStep, SidecarExecuteTerminalCommandRequest, SidecarListFilesEndpoint, SidecarOverwriteFileRequest } from './types';
 import { Position, Range, workspace } from 'vscode';
-import { applyEdits, applyEditsDirectly, overwriteFile } from './applyEdits';
+import { overwriteFile } from './applyEdits';
 import { getDiagnosticsFromEditor, getEnrichedDiagnostics, getFileDiagnosticsFromEditor, getFullWorkspaceDiagnostics, getHoverInformation } from './diagnostics';
 import { openFileEditor } from './openFile';
 import { goToDefinition } from './goToDefinition';
