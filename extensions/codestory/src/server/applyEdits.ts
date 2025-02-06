@@ -125,6 +125,33 @@ export async function applyEdits(
 	};
 }
 
+/**
+ * Overwrites the entire content of a file
+ */
+export async function overwriteFile(
+    request: SidecarOverwriteFileRequest,
+): Promise<{fs_file_path: string; success: boolean}> {
+    const filePath = request.fs_file_path;
+    const fileUri = vscode.Uri.file(filePath);
+
+    const workspaceEdit = new vscode.WorkspaceEdit();
+    // Create a range that covers the entire file
+    const document = await vscode.workspace.openTextDocument(fileUri);
+    const fullRange = new vscode.Range(
+        new vscode.Position(0, 0),
+        new vscode.Position(document.lineCount, 0)
+    );
+    
+    workspaceEdit.replace(fileUri, fullRange, request.content);
+    await vscode.workspace.applyEdit(workspaceEdit);
+    await vscode.workspace.save(fileUri);
+
+    return {
+        fs_file_path: filePath,
+        success: true
+    };
+}
+
 export interface ITask<T> {
 	(): T;
 }
