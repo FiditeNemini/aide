@@ -135,14 +135,13 @@ export async function overwriteFile(
     const fileUri = vscode.Uri.file(filePath);
 
     const workspaceEdit = new vscode.WorkspaceEdit();
-    // Create a range that covers the entire file
     const document = await vscode.workspace.openTextDocument(fileUri);
     const fullRange = new vscode.Range(
         new vscode.Position(0, 0),
-        new vscode.Position(document.lineCount, 0)
+        document.lineAt(document.lineCount - 1).range.end
     );
     
-    workspaceEdit.replace(fileUri, fullRange, request.content);
+    workspaceEdit.replace(fileUri, fullRange, request.updated_content);
     await vscode.workspace.applyEdit(workspaceEdit);
     await vscode.workspace.save(fileUri);
 
