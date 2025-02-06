@@ -278,6 +278,7 @@ registerAction2(class RemoveAction extends Action2 {
 			f1: false,
 			category: CHAT_CATEGORY,
 			icon: Codicon.discard,
+			precondition: CONTEXT_CHAT_REQUEST_IN_PROGRESS.negate(),
 			keybinding: {
 				primary: KeyCode.Delete,
 				mac: {
