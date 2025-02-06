@@ -49,6 +49,8 @@ export class CSAuthenticationService extends Themable implements ICSAuthenticati
 	private _pendingStates: string[] = [];
 	private _session: CSAuthenticationSession | undefined;
 
+	private _refreshTimeout: NodeJS.Timeout | undefined;
+
 	constructor(
 		@IThemeService themeService: IThemeService,
 		@ISecretStorageService private readonly secretStorageService: ISecretStorageService,
@@ -107,7 +109,7 @@ export class CSAuthenticationService extends Themable implements ICSAuthenticati
 				// Successfully got a new token
 				const data = (await response.json()) as EncodedCSTokenData;
 				await this.getSessionData(this._session.id, data);
-				this.scheduleRefresh(data.access_token);
+				this._refreshTimeout = this.scheduleRefresh(data.access_token);
 				return;  // Done refreshing
 			} else if (response.status === 401) {
 				// The refresh token is truly invalid or expired
@@ -193,6 +195,7 @@ export class CSAuthenticationService extends Themable implements ICSAuthenticati
 	}
 
 	async deleteSession(): Promise<void> {
+		clearTimeout(this._refreshTimeout);
 		await this.secretStorageService.delete(SESSION_SECRET_KEY);
 	}
 
