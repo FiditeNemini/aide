@@ -12,7 +12,7 @@ import { EditorExtensionsRegistry } from '../../../../editor/browser/editorExten
 import { ICodeEditorWidgetOptions } from '../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
 import { DiffEditorWidget } from '../../../../editor/browser/widget/diffEditor/diffEditorWidget.js';
 import { EDITOR_FONT_DEFAULTS, IEditorOptions } from '../../../../editor/common/config/editorOptions.js';
-import { IResolvedTextEditorModel } from '../../../../editor/common/services/resolverService.js';
+import { ITextModel } from '../../../../editor/common/model.js';
 import { BracketMatchingController } from '../../../../editor/contrib/bracketMatching/browser/bracketMatching.js';
 import { ContextMenuController } from '../../../../editor/contrib/contextmenu/browser/contextmenu.js';
 import { ContentHoverController } from '../../../../editor/contrib/hover/browser/contentHoverController.js';
@@ -42,12 +42,12 @@ export interface IEditPreviewBlockData {
 	readonly uri: URI;
 	readonly languageId: string;
 	original: {
-		model: Promise<IResolvedTextEditorModel>;
+		model: Promise<ITextModel>;
 		text: string;
 		codeBlockIndex: number;
 	};
 	modified: {
-		model: Promise<IResolvedTextEditorModel>;
+		model: Promise<ITextModel>;
 		text: string;
 		codeBlockIndex: number;
 	};
@@ -222,8 +222,8 @@ export class EditPreviewBlockPart extends Disposable {
 			return;
 		}
 
-		const original = (await data.original.model).textEditorModel;
-		const modified = (await data.modified.model).textEditorModel;
+		const original = await data.original.model;
+		const modified = await data.modified.model;
 
 		const viewModel = this.diffEditor.createViewModel({ original, modified });
 		await viewModel.waitForDiff();

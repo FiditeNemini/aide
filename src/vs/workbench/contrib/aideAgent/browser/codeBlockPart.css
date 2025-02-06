@@ -57,7 +57,7 @@
 }
 
 .aideagent-item-container .value .rendered-markdown [data-code] {
-	margin: 16px 0;
+	margin: 0 0 16px 0;
 }
 
 .interactive-result-code-block {
@@ -156,10 +156,6 @@
 	padding: 0 3px;
 	box-sizing: border-box;
 	border-bottom: solid 1px var(--vscode-chat-requestBorder);
-}
-
-.interactive-result-code-block.compare .interactive-result-header .monaco-icon-label::before {
-	height: unset !important;
 }
 
 .interactive-result-code-block.compare.no-diff .interactive-result-header,

@@ -63,8 +63,10 @@ export class ChatCollapsibleListContentPart extends Disposable implements IChatC
 
 	private readonly hasFollowingContent: boolean;
 
+	private readonly data: ReadonlyArray<IChatCollapsibleListItem>;
+
 	constructor(
-		private readonly data: ReadonlyArray<IChatCollapsibleListItem>,
+		items: ReadonlyArray<IChatCollapsibleListItem>,
 		labelOverride: string | undefined,
 		context: IChatContentPartRenderContext,
 		contentReferencesListPool: CollapsibleListPool,
@@ -74,6 +76,16 @@ export class ChatCollapsibleListContentPart extends Disposable implements IChatC
 		@IContextMenuService private readonly contextMenuService: IContextMenuService,
 	) {
 		super();
+
+		// Remove duplicate items
+		const data = this.data = items.filter((value, index, self) => {
+			if (value.kind === 'reference') {
+				return self.findIndex((t) => t.kind === 'reference' && t.reference.toString() === value.reference.toString()) === index;
+			} else if (value.kind === 'warning') {
+				return self.findIndex((t) => t.kind === 'warning' && t.content.value === value.content.value) === index;
+			}
+			return false;
+		});
 
 		const element = context.element as IChatResponseViewModel;
 		this.hasFollowingContent = context.contentIndex + 1 < context.content.length;

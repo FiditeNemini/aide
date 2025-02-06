@@ -145,7 +145,7 @@ export class AideAgentPlanViewModel extends Disposable implements IAideAgentPlan
 			if (token.type === 'code') {
 				const lang = token.lang || '';
 				const text = token.text;
-				this.codeBlockModelCollection.update(this._model.sessionId, model, codeBlockIndex++, { text, languageId: lang });
+				this.codeBlockModelCollection.update(this._model.sessionId, model, codeBlockIndex++, { text, languageId: lang, isComplete: true });
 			}
 		});
 	}

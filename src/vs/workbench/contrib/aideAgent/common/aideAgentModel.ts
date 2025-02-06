@@ -94,6 +94,7 @@ export interface IChatRequestModel {
 	readonly confirmation?: string;
 	readonly locationData?: IChatLocationData;
 	readonly attachedContext?: IChatRequestVariableEntry[];
+	readonly isCompleteAddedRequest: boolean;
 	shouldBeRemovedOnSend: boolean;
 }
 
@@ -154,6 +155,7 @@ export interface IChatResponseModel {
 	readonly isComplete: boolean;
 	readonly isCanceled: boolean;
 	shouldBeRemovedOnSend: boolean;
+	isCompleteAddedRequest: boolean;
 	/** A stale response is one that has been persisted and rehydrated, so e.g. Commands that have their arguments stored in the EH are gone. */
 	readonly isStale: boolean;
 	readonly hasSideEffects: boolean;
@@ -216,7 +218,8 @@ export class ChatRequestModel implements IChatRequestModel {
 		private _attempt: number = 0,
 		private _confirmation?: string,
 		private _locationData?: IChatLocationData,
-		private _attachedContext?: IChatRequestVariableEntry[]
+		private _attachedContext?: IChatRequestVariableEntry[],
+		public readonly isCompleteAddedRequest = false,
 	) {
 		this.id = 'request_' + ChatRequestModel.nextId++;
 	}
@@ -500,6 +503,7 @@ export class ChatResponseModel extends Disposable implements IChatResponseModel 
 		private _voteDownReason?: ChatAgentVoteDownReason,
 		private _result?: IChatAgentResult,
 		followups?: ReadonlyArray<IChatFollowup>,
+		public readonly isCompleteAddedRequest = false,
 		private _shouldBeRemovedOnSend: boolean = false,
 	) {
 		super();
@@ -1096,11 +1100,11 @@ export class ChatModel extends Disposable implements IChatModel {
 		});
 	}
 
-	addRequest(message: IParsedChatRequest, variableData: IChatRequestVariableData, attempt: number, chatAgent?: IChatAgentData, slashCommand?: IChatAgentCommand, confirmation?: string, locationData?: IChatLocationData, attachments?: IChatRequestVariableEntry[]): ChatRequestModel {
+	addRequest(message: IParsedChatRequest, variableData: IChatRequestVariableData, attempt: number, chatAgent?: IChatAgentData, slashCommand?: IChatAgentCommand, confirmation?: string, locationData?: IChatLocationData, attachments?: IChatRequestVariableEntry[], isCompleteAddedRequest?: boolean): ChatRequestModel {
 		this.autoAcceptLastExchange();
 
-		const request = new ChatRequestModel(this, message, variableData, attempt, confirmation, locationData, attachments);
-		const response = new ChatResponseModel([], this, chatAgent, slashCommand);
+		const request = new ChatRequestModel(this, message, variableData, attempt, confirmation, locationData, attachments, isCompleteAddedRequest);
+		const response = new ChatResponseModel([], this, chatAgent, slashCommand, undefined, undefined, undefined, undefined, undefined, undefined, isCompleteAddedRequest);
 
 		this._exchanges.push(request, response);
 		this._lastMessageDate = Date.now();

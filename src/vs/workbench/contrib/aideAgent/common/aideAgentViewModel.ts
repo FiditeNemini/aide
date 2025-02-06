@@ -75,6 +75,7 @@ export interface IChatRequestViewModel {
 	readonly confirmation?: string;
 	readonly shouldBeRemovedOnSend: boolean;
 	readonly isComplete: boolean;
+	readonly isCompleteAddedRequest: boolean;
 }
 
 export interface IChatResponseMarkdownRenderData {
@@ -179,6 +180,7 @@ export interface IChatResponseViewModel {
 	readonly result?: IChatAgentResult;
 	readonly contentUpdateTimings?: IChatLiveUpdateData;
 	readonly shouldBeRemovedOnSend: boolean;
+	readonly isCompleteAddedRequest: boolean;
 	renderData?: IChatResponseRenderData;
 	currentRenderedHeight: number | undefined;
 	setVote(vote: ChatAgentVoteDirection): void;
@@ -339,7 +341,7 @@ export class ChatViewModel extends Disposable implements IChatViewModel {
 			if (token.type === 'code') {
 				const lang = token.lang || '';
 				const text = token.text;
-				this.codeBlockModelCollection.update(this._model.sessionId, model, codeBlockIndex++, { text, languageId: lang });
+				this.codeBlockModelCollection.update(this._model.sessionId, model, codeBlockIndex++, { text, languageId: lang, isComplete: true });
 			}
 		});
 	}
@@ -394,6 +396,10 @@ export class ChatRequestViewModel implements IChatRequestViewModel {
 
 	get isComplete() {
 		return false;
+	}
+
+	get isCompleteAddedRequest() {
+		return this._model.isCompleteAddedRequest;
 	}
 
 	get shouldBeRemovedOnSend() {
@@ -491,6 +497,10 @@ export class ChatResponseViewModel extends Disposable implements IChatResponseVi
 
 	get shouldBeRemovedOnSend() {
 		return this._model.shouldBeRemovedOnSend;
+	}
+
+	get isCompleteAddedRequest() {
+		return this._model.isCompleteAddedRequest;
 	}
 
 	get replyFollowups() {
