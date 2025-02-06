@@ -415,8 +415,10 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		if (renderInputOnTop) {
 			this.createInput(this.container, { renderFollowups, renderStyle });
 			this.listContainer = dom.append(this.container, $(`.interactive-list`));
+			this.hiddenExchangesMessageContainer = dom.append(this.container, $(`.hidden-exchanges-container`));
 		} else {
 			this.listContainer = dom.append(this.container, $(`.interactive-list`));
+			this.hiddenExchangesMessageContainer = dom.append(this.container, $(`.hidden-exchanges-container`));
 			this.createInput(this.container, { renderFollowups, renderStyle });
 		}
 
@@ -434,7 +436,6 @@ export class ChatWidget extends Disposable implements IChatWidget {
 			this.scrollLock = true;
 			this.scrollToEnd();
 		}));
-		this.hiddenExchangesMessageContainer = dom.append(this.container, $(`.hidden-exchanges-container`));
 
 		this._register(this.editorOptions.onDidChange(() => this.onDidStyleChange()));
 		this.onDidStyleChange();
@@ -567,7 +568,7 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		}
 
 		if (hiddenCount > 0) {
-			this.hiddenExchangesMessageContainer.textContent = localize('hiddenExchanges', "{0} exchanges hidden", hiddenCount);
+			this.hiddenExchangesMessageContainer.textContent = localize('hiddenExchanges', "{0} exchanges reverted", hiddenCount);
 			dom.show(this.hiddenExchangesMessageContainer);
 		} else {
 			this.hiddenExchangesMessageContainer.textContent = '';

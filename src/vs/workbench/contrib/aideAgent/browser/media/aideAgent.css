@@ -1568,3 +1568,11 @@ have to be updated for changes to the rules above, or to support more deeply nes
 .aideagent-item-container .aideagent-attachment-icons .icon-label {
 	text-wrap: wrap;
 }
+
+.interactive-session .hidden-exchanges-container {
+	margin: 8px 16px;
+	padding: 8px;
+	background-color: var(--vscode-input-background);
+	border: 1px solid var(--vscode-input-border, transparent);
+	border-radius: 4px;
+}
