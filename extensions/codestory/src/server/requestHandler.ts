@@ -3,8 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 import * as http from 'http';
-import { SidecarApplyEditsRequest, LSPDiagnostics, SidecarGoToDefinitionRequest, SidecarGoToImplementationRequest, SidecarGoToReferencesRequest, SidecarOpenFileToolRequest, LSPQuickFixInvocationRequest, SidecarQuickFixRequest, SidecarSymbolSearchRequest, SidecarInlayHintsRequest, SidecarGetOutlineNodesRequest, SidecarOutlineNodesWithContentRequest, EditedCodeStreamingRequest, SidecarRecentEditsRetrieverRequest, SidecarRecentEditsRetrieverResponse, SidecarCreateFileRequest, LSPFileDiagnostics, SidecarGetPreviousWordRangeRequest, SidecarDiagnosticsResponse, SidecarCreateNewExchangeRequest, SidecarUndoPlanStep, SidecarExecuteTerminalCommandRequest, SidecarListFilesEndpoint } from './types';
+import { SidecarApplyEditsRequest, LSPDiagnostics, SidecarGoToDefinitionRequest, SidecarGoToImplementationRequest, SidecarGoToReferencesRequest, SidecarOpenFileToolRequest, LSPQuickFixInvocationRequest, SidecarQuickFixRequest, SidecarSymbolSearchRequest, SidecarInlayHintsRequest, SidecarGetOutlineNodesRequest, SidecarOutlineNodesWithContentRequest, EditedCodeStreamingRequest, SidecarRecentEditsRetrieverRequest, SidecarRecentEditsRetrieverResponse, SidecarCreateFileRequest, LSPFileDiagnostics, SidecarGetPreviousWordRangeRequest, SidecarDiagnosticsResponse, SidecarCreateNewExchangeRequest, SidecarUndoPlanStep, SidecarExecuteTerminalCommandRequest, SidecarListFilesEndpoint, SidecarOverwriteFileRequest } from './types';
 import { Position, Range, workspace } from 'vscode';
+import { overwriteFile } from './applyEdits';
 import { getDiagnosticsFromEditor, getEnrichedDiagnostics, getFileDiagnosticsFromEditor, getFullWorkspaceDiagnostics, getHoverInformation } from './diagnostics';
 import { openFileEditor } from './openFile';
 import { goToDefinition } from './goToDefinition';
@@ -236,6 +237,12 @@ export function handleRequest(
 				console.log('hitting devtool_screenshot');
 				const response = await getBrowserScreenshot();
 				console.log('screenshot: ', response);
+				res.writeHead(200, { 'Content-Type': 'application/json' });
+				res.end(JSON.stringify(response));
+			} else if (req.method === 'POST' && req.url === '/overwrite_file') {
+				const body = await readRequestBody(req);
+				const request: SidecarOverwriteFileRequest = JSON.parse(body);
+				const response = await overwriteFile(request);
 				res.writeHead(200, { 'Content-Type': 'application/json' });
 				res.end(JSON.stringify(response));
 			} else {

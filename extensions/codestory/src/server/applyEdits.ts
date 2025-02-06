@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { SidecarApplyEditsRequest, SidecarApplyEditsResponse } from './types';
+import { SidecarApplyEditsRequest, SidecarApplyEditsResponse, SidecarOverwriteFileRequest } from './types';
 import * as vscode from 'vscode';
 
 /**
@@ -123,6 +123,32 @@ export async function applyEdits(
 		success: true,
 		new_range: newRange,
 	};
+}
+
+/**
+ * Overwrites the entire content of a file
+ */
+export async function overwriteFile(
+    request: SidecarOverwriteFileRequest,
+): Promise<{fs_file_path: string; success: boolean}> {
+    const filePath = request.fs_file_path;
+    const fileUri = vscode.Uri.file(filePath);
+
+    const workspaceEdit = new vscode.WorkspaceEdit();
+    const document = await vscode.workspace.openTextDocument(fileUri);
+    const fullRange = new vscode.Range(
+        new vscode.Position(0, 0),
+        document.lineAt(document.lineCount - 1).range.end
+    );
+    
+    workspaceEdit.replace(fileUri, fullRange, request.updated_content);
+    await vscode.workspace.applyEdit(workspaceEdit);
+    await vscode.workspace.save(fileUri);
+
+    return {
+        fs_file_path: filePath,
+        success: true
+    };
 }
 
 export interface ITask<T> {

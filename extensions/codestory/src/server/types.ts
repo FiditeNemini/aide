@@ -1179,6 +1179,11 @@ export type SidecarRecentEditsRetrieverRequest = {
 	diff_file_content: SidecarRecentEditsFilePreviousContent[];
 };
 
+export type SidecarOverwriteFileRequest = {
+    fs_file_path: string;
+    updated_content: string;
+};
+
 export type SidecarApplyEditsRequest = {
 	fs_file_path: string;
 	edited_content: string;
