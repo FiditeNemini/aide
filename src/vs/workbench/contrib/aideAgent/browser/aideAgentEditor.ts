@@ -69,7 +69,8 @@ export class ChatEditor extends EditorPane {
 				{
 					supportsFileReferences: true,
 					rendererOptions: {
-						renderTextEditsAsSummary: () => true
+						renderTextEditsAsSummary: () => true,
+						renderCodeBlockPills: true,
 					}
 				},
 				{

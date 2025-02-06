@@ -183,6 +183,7 @@ export class ChatViewPane extends ViewPane {
 					editorOverflowWidgetsDomNode: editorOverflowNode,
 					rendererOptions: {
 						renderTextEditsAsSummary: () => true,
+						renderCodeBlockPills: true,
 					}
 				},
 				{

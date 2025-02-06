@@ -187,25 +187,51 @@ export class ChatMarkdownContentPart extends Disposable implements IChatContentP
 					const modifiedIndex = globalCodeBlockIndexStart++;
 					const modified = this.codeBlockModelCollection.getOrCreate(sessionId, element, modifiedIndex).model;
 
+					const uri = extractedUris[currentUriIndex++] || URI.parse('');
 					const codeBlockInfo: IEditPreviewBlockData = {
-						uri: extractedUris[currentUriIndex++] || URI.parse(''), // Use the current URI
+						uri,
 						element,
 						languageId,
 						parentContextKeyService: contextKeyService,
 						original: { model: original, text: editPreviewBlock.original, codeBlockIndex: originalIndex },
 						modified: { model: modified, text: editPreviewBlock.modified, codeBlockIndex: modifiedIndex },
 					};
-					const ref = this.renderEditPreviewBlock(codeBlockInfo, isCodeBlockComplete, currentWidth);
-					this.allEditPreviewRefs.push(ref);
 
-					this._register(ref.object.onDidChangeContentHeight(() => this._onDidChangeHeight.fire()));
+					let ref: IDisposableReference<EditPreviewBlockPart | CollapsedCodeBlock>;
+					if (!rendererOptions.renderCodeBlockPills) {
+						const editPreviewRef = ref = this.renderEditPreviewBlock(codeBlockInfo, isCodeBlockComplete, currentWidth);
+						this.allEditPreviewRefs.push(editPreviewRef);
 
-					const ownerMarkdownPartId = this.id;
-					const info: IEditPreviewCodeBlockInfo = new class {
-						readonly ownerMarkdownPartId = ownerMarkdownPartId;
-						readonly element = element;
-					}();
-					this.editPreviewBlocks.push(info);
+						this._register(editPreviewRef.object.onDidChangeContentHeight(() => this._onDidChangeHeight.fire()));
+
+						const ownerMarkdownPartId = this.id;
+						const info: IEditPreviewCodeBlockInfo = new class {
+							readonly ownerMarkdownPartId = ownerMarkdownPartId;
+							readonly element = element;
+						}();
+						this.editPreviewBlocks.push(info);
+					} else {
+						const pillRef = ref = this.renderCodeBlockPill(element.sessionId, element.id, codeBlockInfo.uri, !isCodeBlockComplete);
+						this.allRefs.push(pillRef);
+
+						const ownerMarkdownPartId = this.id;
+						const info: IChatCodeBlockInfo = new class {
+							readonly ownerMarkdownPartId = ownerMarkdownPartId;
+							readonly codeBlockIndex = modifiedIndex;
+							readonly element = element;
+							readonly isStreaming = !isCodeBlockComplete;
+							readonly codemapperUri = uri;
+							readonly uri = uri;
+							readonly uriPromise = Promise.resolve(uri);
+							public focus() {
+								return pillRef.object.element.focus();
+							}
+							public getContent(): string {
+								return ''; // Not needed for collapsed code blocks
+							}
+						}();
+						this.codeblocks.push(info);
+					}
 
 					orderedDisposablesList.push(ref);
 					return ref.object.element;
