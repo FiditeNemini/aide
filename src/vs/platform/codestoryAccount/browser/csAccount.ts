@@ -28,7 +28,7 @@ export class CSAccountService extends Disposable implements ICSAccountService {
 
 	private authenticatedSession: CSAuthenticationSession | undefined;
 
-	private isVisible: IContextKey<boolean>;
+	private _isVisible: IContextKey<boolean>;
 	private csAccountCard: HTMLElement | undefined;
 
 	private _websiteBase: string | null = null;
@@ -52,12 +52,19 @@ export class CSAccountService extends Disposable implements ICSAccountService {
 			this._websiteBase = 'https://aide.dev';
 		}
 
-		this.isVisible = CS_ACCOUNT_CARD_VISIBLE.bindTo(this.contextKeyService);
+		this._isVisible = CS_ACCOUNT_CARD_VISIBLE.bindTo(this.contextKeyService);
 		this.refresh();
+
+
+		this._register(this.csAuthenticationService.onShouldAuthenticate(() => {
+			if (!this._isVisible.get()) {
+				this.toggle();
+			}
+		}));
 	}
 
 	private async refresh(): Promise<void> {
-		const session = await this.csAuthenticationService.getSession();
+		const session = await this.csAuthenticationService.getSession({ hardCheck: false });
 		if (session) {
 			this.authenticatedSession = session;
 		} else {
@@ -66,19 +73,19 @@ export class CSAccountService extends Disposable implements ICSAccountService {
 	}
 
 	toggle(): void {
-		if (!this.isVisible.get()) {
+		if (!this._isVisible.get()) {
 			this.show();
-			this.isVisible.set(true);
+			this._isVisible.set(true);
 		} else {
 			this.hide();
-			this.isVisible.set(false);
+			this._isVisible.set(false);
 		}
 	}
 
 	async ensureAuthorized(): Promise<boolean> {
 		const count = this.storageService.getNumber(STORAGE_KEY, StorageScope.PROFILE, 0);
 		try {
-			let csAuthSession = await this.csAuthenticationService.getSession();
+			let csAuthSession = await this.csAuthenticationService.getSession({ hardCheck: false });
 			if (!csAuthSession) {
 				// Show the account card
 				this.toggle();
@@ -133,9 +140,8 @@ export class CSAccountService extends Disposable implements ICSAccountService {
 	private async show(): Promise<void> {
 		const container = this.layoutService.activeContainer;
 		const csAccountCard = this.csAccountCard = dom.append(container, $('.cs-account-card'));
-		if (!this.authenticatedSession) {
-			await this.refresh();
-		}
+
+		await this.refresh();
 
 		if (this.authenticatedSession) {
 			// User is signed in

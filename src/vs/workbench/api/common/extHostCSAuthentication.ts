@@ -7,6 +7,7 @@ import type * as vscode from 'vscode';
 import { createDecorator } from '../../../platform/instantiation/common/instantiation.js';
 import { ExtHostCSAuthenticationShape, MainContext, MainThreadCSAuthenticationShape } from './extHost.protocol.js';
 import { IExtHostRpcService } from './extHostRpcService.js';
+import { GetSessionOptions } from '../../../platform/codestoryAccount/common/csAccount.js';
 
 export interface IExtHostCSAuthentication extends ExtHostCSAuthentication { }
 export const IExtHostCSAuthentication = createDecorator<IExtHostCSAuthentication>('IExtHostCSAuthentication');
@@ -22,8 +23,8 @@ export class ExtHostCSAuthentication implements ExtHostCSAuthenticationShape {
 		this._proxy = extHostRpc.getProxy(MainContext.MainThreadCSAuthentication);
 	}
 
-	async getSession(): Promise<vscode.CSAuthenticationSession | undefined> {
-		return this._proxy.$getSession();
+	async getSession(options: GetSessionOptions): Promise<vscode.CSAuthenticationSession | undefined> {
+		return this._proxy.$getSession(options);
 	}
 
 	async refreshSession(): Promise<vscode.CSAuthenticationSession | undefined> {

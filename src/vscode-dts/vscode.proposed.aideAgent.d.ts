@@ -118,7 +118,7 @@ declare module 'vscode' {
 		handleEvent: AideSessionEventHandler;
 	}
 
-	interface AideSessionAgent extends Omit<ChatParticipant, 'requestHandler'> {
+	export interface AideSessionAgent extends Omit<ChatParticipant, 'requestHandler'> {
 		requestHandler: AideSessionEventHandler;
 		readonly initResponse: AideSessionEventSender;
 	}

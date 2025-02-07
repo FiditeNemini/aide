@@ -9,7 +9,7 @@ import { Emitter, Event } from '../../../../base/common/event.js';
 import Severity from '../../../../base/common/severity.js';
 import { URI } from '../../../../base/common/uri.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
-import { CSAuthenticationSession, CSUserProfileResponse, EncodedCSTokenData, ICSAuthenticationService, SubscriptionResponse } from '../../../../platform/codestoryAccount/common/csAccount.js';
+import { CSAuthenticationSession, CSUserProfileResponse, EncodedCSTokenData, GetSessionOptions, ICSAuthenticationService, SubscriptionResponse } from '../../../../platform/codestoryAccount/common/csAccount.js';
 import { CommandsRegistry } from '../../../../platform/commands/common/commands.js';
 import { IEnvironmentService } from '../../../../platform/environment/common/environment.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
@@ -29,17 +29,27 @@ class CSAuthenticationError extends Error {
 
 const SESSION_SECRET_KEY = 'codestory.auth.session';
 
+type AuthError = {
+	type: 'transient' | 'configuration' | 'unauthorized';
+	message: string;
+};
+
 export class CSAuthenticationService extends Themable implements ICSAuthenticationService {
 	declare readonly _serviceBrand: undefined;
 
 	private _onDidAuthenticate: Emitter<CSAuthenticationSession> = this._register(new Emitter<CSAuthenticationSession>());
 	readonly onDidAuthenticate: Event<CSAuthenticationSession> = this._onDidAuthenticate.event;
 
+	private _onShouldAuthenticate = this._register(new Emitter<void>());
+	readonly onShouldAuthenticate = this._onShouldAuthenticate.event;
+
 	private _subscriptionsAPIBase: string | null = null;
 	private _websiteBase: string | null = null;
 
 	private _pendingStates: string[] = [];
 	private _session: CSAuthenticationSession | undefined;
+
+	private _refreshTimeout: NodeJS.Timeout | undefined;
 
 	constructor(
 		@IThemeService themeService: IThemeService,
@@ -54,7 +64,7 @@ export class CSAuthenticationService extends Themable implements ICSAuthenticati
 
 		const isDevelopment = !this.environmentService.isBuilt || this.environmentService.isExtensionDevelopment;
 		if (isDevelopment) {
-			this._subscriptionsAPIBase = 'https://staging-api.codestory.ai';
+			this._subscriptionsAPIBase = 'https://staging-api.codestory.ai'; // Change this to 'http://localhost:3333' for local development
 			this._websiteBase = 'https://staging.aide.dev';
 		} else {
 			this._subscriptionsAPIBase = 'https://api.codestory.ai';
@@ -75,37 +85,91 @@ export class CSAuthenticationService extends Themable implements ICSAuthenticati
 		await this.refreshTokens();
 	}
 
+	private readonly MAX_REFRESH_RETRIES = 3;
+
 	async refreshTokens(): Promise<void> {
 		if (!this._session) {
 			return;
 		}
 
-		try {
+		let attempts = 0;
+		let lastError: AuthError | undefined;
+
+		while (attempts < this.MAX_REFRESH_RETRIES && lastError?.type !== 'unauthorized') {
+
 			const response = await fetch(`${this._subscriptionsAPIBase}/v1/auth/refresh`, {
 				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-				},
+				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
-					'refresh_token': this._session.refreshToken,
+					refresh_token: this._session.refreshToken
 				}),
 			});
-			if (!response.ok) {
-				this.notificationService.notify(
-					{
-						severity: Severity.Error,
-						message: `Failed to authenticate with CodeStory. Please try logging in again.`,
-						priority: NotificationPriority.URGENT,
-					}
-				);
+
+			if (response.ok) {
+				// Successfully got a new token
+				const data = (await response.json()) as EncodedCSTokenData;
+				await this.getSessionData(this._session.id, data);
+				this._refreshTimeout = this.scheduleRefresh(data.access_token);
+				return;  // Done refreshing
+			} else if (response.status === 401) {
+				// The refresh token is truly invalid or expired
+				this.notificationService.notify({
+					severity: Severity.Error,
+					message: 'Your CodeStory session has expired. Please sign in again.',
+					priority: NotificationPriority.URGENT,
+				});
+
 				await this.deleteSession();
-				throw new Error(`Failed to authenticate with CodeStory. Please try logging in again.`);
+				this._onShouldAuthenticate.fire();
+				lastError = { type: 'unauthorized', message: 'Refresh token invalid or expired' };
+			} else if (response.status >= 500) {
+				// Likely a transient server error, let's retry
+				lastError = { type: 'transient', message: `Server error ${response.status}, attempt ${attempts + 1}` };
+			} else {
+				// Some other 4XX error - possibly a misconfiguration or something else
+				lastError = { type: 'configuration', message: `Unexpected HTTP ${response.status} on refresh, attempt ${attempts + 1}` };
 			}
 
-			const data = (await response.json()) as EncodedCSTokenData;
-			await this.getSessionData(this._session.id, data);
-		} catch (e: any) {
-			return;
+			attempts++;
+			await delay(1000 * attempts);
+		}
+
+		if (lastError && lastError.type !== 'unauthorized') {
+			this.notificationService.notify({
+				severity: Severity.Error,
+				message: `Failed to refresh CodeStory session after ${this.MAX_REFRESH_RETRIES} attempts. Please check your internet or try again later.`,
+			});
+		}
+
+		// await this.deleteSession();
+
+		throw new Error(lastError?.message);
+	}
+
+	private scheduleRefresh(
+		token: string,
+	) {
+		try {
+			const payload = decodeJwtPayload(token);
+			const expirationMs = payload.exp * 1000; // "exp" in JWT is in seconds since Unix epoch
+			const nowMs = Date.now();
+			const msUntilExpiry = expirationMs - nowMs;
+			const refreshDelay = msUntilExpiry - 30_000; // We want to refresh 30s before official expiration
+			const finalDelay = Math.max(0, refreshDelay); // In case the token is nearly or already expired, schedule immediately
+
+			const isDevelopment = !this.environmentService.isBuilt || this.environmentService.isExtensionDevelopment;
+			if (isDevelopment) {
+				console.log(`Scheduled refresh in ${finalDelay / 1000}s`);
+			}
+
+			return setTimeout(() => {
+				this.refreshTokens();
+			}, finalDelay);
+
+		} catch (error) {
+			console.error('Error scheduling token refresh:', error);
+			// If decoding fails, refresh immediately (?)
+			return setTimeout(() => this.refreshTokens(), 0);
 		}
 	}
 
@@ -131,6 +195,7 @@ export class CSAuthenticationService extends Themable implements ICSAuthenticati
 	}
 
 	async deleteSession(): Promise<void> {
+		clearTimeout(this._refreshTimeout);
 		await this.secretStorageService.delete(SESSION_SECRET_KEY);
 	}
 
@@ -246,7 +311,13 @@ export class CSAuthenticationService extends Themable implements ICSAuthenticati
 		return encodedData;
 	}
 
-	async getSession(): Promise<CSAuthenticationSession | undefined> {
+	async getSession(options: GetSessionOptions): Promise<CSAuthenticationSession | undefined> {
+		const { hardCheck } = options;
+
+		if (hardCheck) {
+			await this.refreshTokens();
+		}
+
 		const rawSession = await this.secretStorageService.get(SESSION_SECRET_KEY);
 		const session: CSAuthenticationSession | undefined = rawSession ? JSON.parse(rawSession) : undefined;
 		if (!session) {
@@ -338,5 +409,21 @@ export class CSAuthenticationService extends Themable implements ICSAuthenticati
 		}
 	}
 }
+
+
+function delay(ms: number): Promise<void> {
+	return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function decodeJwtPayload(token: string): Record<string, any> {
+	const [, payloadPart] = token.split('.');
+	if (!payloadPart) {
+		throw new Error('Invalid JWT format');
+	}
+	const base64Payload = payloadPart.replace(/-/g, '+').replace(/_/g, '/');
+	const decodedJson = decodeBase64(base64Payload).toString();
+	return JSON.parse(decodedJson);
+}
+
 
 registerSingleton(ICSAuthenticationService, CSAuthenticationService, InstantiationType.Eager);

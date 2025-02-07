@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from '../../../base/common/lifecycle.js';
-import { CSAuthenticationSession, ICSAuthenticationService } from '../../../platform/codestoryAccount/common/csAccount.js';
+import { CSAuthenticationSession, GetSessionOptions, ICSAuthenticationService } from '../../../platform/codestoryAccount/common/csAccount.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../services/extensions/common/extHostCustomers.js';
 import { MainContext, MainThreadCSAuthenticationShape } from '../common/extHost.protocol.js';
 
@@ -17,12 +17,12 @@ export class MainThreadCSAuthentication extends Disposable implements MainThread
 		super();
 	}
 
-	$getSession(): Promise<CSAuthenticationSession | undefined> {
-		return this._csAccountService.getSession();
+	$getSession(options: GetSessionOptions): Promise<CSAuthenticationSession | undefined> {
+		return this._csAccountService.getSession(options);
 	}
 
 	async $refreshSession(): Promise<CSAuthenticationSession | undefined> {
 		await this._csAccountService.refreshTokens();
-		return this._csAccountService.getSession();
+		return this._csAccountService.getSession({ hardCheck: false });
 	}
 }
