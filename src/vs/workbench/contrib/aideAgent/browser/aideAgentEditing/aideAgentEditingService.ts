@@ -365,6 +365,7 @@ export class ChatEditingService extends Disposable implements IAideAgentEditingS
 				this._applyingChatEditsFailedContextKey.set(false);
 			} else if (e.kind === 'addResponse') {
 				const responseModel = e.response;
+				session.createSnapshot(responseModel.id);
 				if (responseModel.isComplete) {
 					await handleResponseParts(responseModel);
 					onResponseComplete(responseModel);

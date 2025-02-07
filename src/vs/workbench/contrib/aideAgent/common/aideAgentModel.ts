@@ -1208,6 +1208,12 @@ export class ChatModel extends Disposable implements IChatModel {
 		exchange.shouldBeRemovedOnSend = true;
 	}
 
+	enableExchange(id: string): void {
+		const index = this._exchanges.findIndex(exchange => exchange.id === id);
+		const exchange = this._exchanges[index];
+		exchange.shouldBeRemovedOnSend = false;
+	}
+
 	removeExchange(id: string, reason: ChatExchangeRemovalReason = ChatExchangeRemovalReason.Removal): void {
 		const index = this._exchanges.findIndex(exchange => exchange.id === id);
 		const exchange = this._exchanges[index];

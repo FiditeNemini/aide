@@ -259,6 +259,7 @@ export class MenuId {
 	static readonly AideAgentEditingEditorHunk = new MenuId('AideAgentEditingEditorHunk');
 	static readonly AideAgentEditingWidgetModifiedFilesToolbar = new MenuId('AideAgentEditingWidgetModifiedFilesToolbar');
 	static readonly AideAgentEditingCodeBlockContext = new MenuId('AideAgentEditingCodeBlockContext');
+	static readonly AideAgentEditingRevertToolbar = new MenuId('AideAgentEditingRevertToolbar');
 	static readonly AccessibleView = new MenuId('AccessibleView');
 	static readonly MultiDiffEditorFileToolbar = new MenuId('MultiDiffEditorFileToolbar');
 	static readonly DiffEditorHunkToolbar = new MenuId('DiffEditorHunkToolbar');

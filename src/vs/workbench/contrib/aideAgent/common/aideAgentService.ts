@@ -457,7 +457,8 @@ export interface IAideAgentService {
 	cancelAllExchangesForSession(): void;
 
 	initiateResponse(sessionId: string): Promise<{ responseId: string; callback: (p: IChatProgress) => void; token: CancellationToken }>;
-	disableExchange(sessionid: string, exchangeId: string): Promise<void>;
+	disableExchange(sessionId: string, exchangeId: string): Promise<void>;
+	enableExchange(sessionId: string, exchangeId: string): Promise<void>;
 	cancelCurrentRequestForSession(sessionId: string): void;
 	clearSession(sessionId: string): void;
 	addCompleteRequest(sessionId: string, message: IParsedChatRequest | string, variableData: IChatRequestVariableData | undefined, attempt: number | undefined, response: IChatCompleteResponse): void;

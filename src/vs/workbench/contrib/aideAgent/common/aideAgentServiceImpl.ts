@@ -751,6 +751,16 @@ export class ChatService extends Disposable implements IAideAgentService {
 		model.disableExchange(exchangeId);
 	}
 
+	async enableExchange(sessionId: string, exchangeId: string): Promise<void> {
+		const model = this._sessionModels.get(sessionId);
+		if (!model) {
+			throw new Error(`Unknown session: ${sessionId}`);
+		}
+
+		await model.waitForInitialization();
+		model.enableExchange(exchangeId);
+	}
+
 	private async removeExchange(sessionId: string, exchangeId: string): Promise<void> {
 		const model = this._sessionModels.get(sessionId);
 		if (!model) {

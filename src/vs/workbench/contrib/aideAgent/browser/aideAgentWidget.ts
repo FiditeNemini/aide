@@ -21,6 +21,7 @@ import { URI } from '../../../../base/common/uri.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { ICodeEditorService } from '../../../../editor/browser/services/codeEditorService.js';
 import { localize } from '../../../../nls.js';
+import { MenuWorkbenchToolBar } from '../../../../platform/actions/browser/toolbar.js';
 import { MenuId } from '../../../../platform/actions/common/actions.js';
 import { AgentMode } from '../../../../platform/aideAgent/common/model.js';
 import { IAIModelSelectionService } from '../../../../platform/aiModel/common/aiModels.js';
@@ -37,7 +38,7 @@ import { asCssVariable } from '../../../../platform/theme/common/colorUtils.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { ChatAgentLocation, IAideAgentAgentService, IChatAgentCommand, IChatAgentData, IChatWelcomeMessageContent } from '../common/aideAgentAgents.js';
-import { CONTEXT_CHAT_INPUT_HAS_AGENT, CONTEXT_CHAT_IN_PASSTHROUGH_WIDGET, CONTEXT_CHAT_LAST_ITEM_ID, CONTEXT_CHAT_LOCATION, CONTEXT_CHAT_REQUEST_IN_PROGRESS, CONTEXT_IN_CHAT_SESSION, CONTEXT_PARTICIPANT_SUPPORTS_MODEL_PICKER, CONTEXT_RESPONSE_FILTERED } from '../common/aideAgentContextKeys.js';
+import { CONTEXT_CHAT_HAS_HIDDEN_EXCHANGES, CONTEXT_CHAT_INPUT_HAS_AGENT, CONTEXT_CHAT_IN_PASSTHROUGH_WIDGET, CONTEXT_CHAT_LAST_ITEM_ID, CONTEXT_CHAT_LOCATION, CONTEXT_CHAT_REQUEST_IN_PROGRESS, CONTEXT_IN_CHAT_SESSION, CONTEXT_PARTICIPANT_SUPPORTS_MODEL_PICKER, CONTEXT_RESPONSE_FILTERED } from '../common/aideAgentContextKeys.js';
 import { IAideAgentEditingService, IChatEditingSession } from '../common/aideAgentEditingService.js';
 import { AgentScope, IChatModel, IChatRequestVariableEntry, IChatResponseModel } from '../common/aideAgentModel.js';
 import { ChatRequestAgentPart, IParsedChatRequest, formatChatQuestion } from '../common/aideAgentParserTypes.js';
@@ -146,13 +147,16 @@ export class ChatWidget extends Disposable implements IChatWidget {
 	private container!: HTMLElement;
 	private welcomeMessageContainer!: HTMLElement;
 	private persistedWelcomeMessage: IChatWelcomeMessageContent | undefined;
+
 	private hiddenExchangesMessageContainer!: HTMLElement;
+	private hiddenExchangesMessage!: HTMLElement;
 
 	private bodyDimension: dom.Dimension | undefined;
 	private visibleChangeCount = 0;
 	private requestInProgress: IContextKey<boolean>;
 	private agentInInput: IContextKey<boolean>;
 	private agentSupportsModelPicker: IContextKey<boolean>;
+	private hasHiddenExchanges: IContextKey<boolean>;
 
 	private _visible = false;
 	public get visible() {
@@ -250,6 +254,7 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		this.agentInInput = CONTEXT_CHAT_INPUT_HAS_AGENT.bindTo(contextKeyService);
 		this.agentSupportsModelPicker = CONTEXT_PARTICIPANT_SUPPORTS_MODEL_PICKER.bindTo(contextKeyService);
 		this.requestInProgress = CONTEXT_CHAT_REQUEST_IN_PROGRESS.bindTo(contextKeyService);
+		this.hasHiddenExchanges = CONTEXT_CHAT_HAS_HIDDEN_EXCHANGES.bindTo(contextKeyService);
 
 		this._codeBlockModelCollection = this._register(instantiationService.createInstance(CodeBlockModelCollection));
 
@@ -415,10 +420,10 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		if (renderInputOnTop) {
 			this.createInput(this.container, { renderFollowups, renderStyle });
 			this.listContainer = dom.append(this.container, $(`.interactive-list`));
-			this.hiddenExchangesMessageContainer = dom.append(this.container, $(`.hidden-exchanges-container`));
+			this.createHiddenExchangesHandler();
 		} else {
 			this.listContainer = dom.append(this.container, $(`.interactive-list`));
-			this.hiddenExchangesMessageContainer = dom.append(this.container, $(`.hidden-exchanges-container`));
+			this.createHiddenExchangesHandler();
 			this.createInput(this.container, { renderFollowups, renderStyle });
 		}
 
@@ -568,11 +573,15 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		}
 
 		if (hiddenCount > 0) {
-			this.hiddenExchangesMessageContainer.textContent = localize('hiddenExchanges', "{0} steps reverted", hiddenCount);
+			this.hiddenExchangesMessage.textContent = localize('hiddenExchanges', "{0} steps reverted", hiddenCount);
+			this.hiddenExchangesMessageContainer.classList.add('hidden-exchanges-visible');
 			dom.show(this.hiddenExchangesMessageContainer);
+			this.hasHiddenExchanges.set(true);
 		} else {
-			this.hiddenExchangesMessageContainer.textContent = '';
+			this.hiddenExchangesMessage.textContent = '';
+			this.hiddenExchangesMessageContainer.classList.remove('hidden-exchanges-visible');
 			dom.hide(this.hiddenExchangesMessageContainer);
+			this.hasHiddenExchanges.set(false);
 		}
 	}
 
@@ -773,6 +782,22 @@ export class ChatWidget extends Disposable implements IChatWidget {
 
 		this.previousTreeScrollHeight = this.tree.scrollHeight;
 		this._onDidChangeContentHeight.fire();
+	}
+
+	private createHiddenExchangesHandler() {
+		this.hiddenExchangesMessageContainer = dom.append(this.container, $(`.hidden-exchanges-container`));
+		this.hiddenExchangesMessage = dom.append(this.hiddenExchangesMessageContainer, $('.hidden-exchanges-message'));
+		const hiddenExchangesToolbarContainer = dom.append(this.hiddenExchangesMessageContainer, $('.hidden-exchanges-toolbar'));
+		this._register(this.instantiationService.createInstance(
+			MenuWorkbenchToolBar,
+			hiddenExchangesToolbarContainer,
+			MenuId.AideAgentEditingRevertToolbar,
+			{
+				actionViewItemProvider: (action) => {
+					return undefined;
+				}
+			}
+		));
 	}
 
 	private createInput(container: HTMLElement, options?: { renderFollowups: boolean; renderStyle?: 'compact' | 'minimal' }): void {

@@ -15,7 +15,7 @@ import { IDialogService } from '../../../../../platform/dialogs/common/dialogs.j
 import { KeybindingWeight } from '../../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { ChatAgentLocation } from '../../common/aideAgentAgents.js';
-import { CONTEXT_CHAT_CAN_REVERT_EXCHANGE, CONTEXT_CHAT_INPUT_HAS_TEXT, CONTEXT_CHAT_LOCATION, CONTEXT_CHAT_REQUEST_IN_PROGRESS, CONTEXT_IN_CHAT_INPUT } from '../../common/aideAgentContextKeys.js';
+import { CONTEXT_CHAT_CAN_REVERT_EXCHANGE, CONTEXT_CHAT_HAS_HIDDEN_EXCHANGES, CONTEXT_CHAT_INPUT_HAS_TEXT, CONTEXT_CHAT_LOCATION, CONTEXT_CHAT_REQUEST_IN_PROGRESS, CONTEXT_IN_CHAT_INPUT } from '../../common/aideAgentContextKeys.js';
 import { applyingChatEditsFailedContextKey, CHAT_EDITING_MULTI_DIFF_SOURCE_RESOLVER_SCHEME, chatEditingResourceContextKey, chatEditingWidgetFileStateContextKey, decidedChatEditingResourceContextKey, hasAppliedChatEditsContextKey, hasUndecidedChatEditingResourceContextKey, IAideAgentEditingService, IChatEditingSession, WorkingSetEntryState } from '../../common/aideAgentEditingService.js';
 import { IAideAgentService } from '../../common/aideAgentService.js';
 import { isRequestVM, isResponseVM } from '../../common/aideAgentViewModel.js';
@@ -327,6 +327,57 @@ registerAction2(class RemoveAction extends Action2 {
 			for (const exchange of exchangesToDisable) {
 				await chatService.disableExchange(item.sessionId, exchange.id);
 			}
+		}
+	}
+});
+
+registerAction2(class RedoAllAction extends Action2 {
+	constructor() {
+		super({
+			id: 'workbench.action.aideAgent.redoAllEdits',
+			title: localize2('chat.redoEdits.label', "Redo all reverted changes"),
+			f1: false,
+			category: CHAT_CATEGORY,
+			icon: Codicon.redo,
+			precondition: CONTEXT_CHAT_HAS_HIDDEN_EXCHANGES,
+			menu: [
+				{
+					id: MenuId.AideAgentEditingRevertToolbar,
+					group: 'navigation',
+					when: ContextKeyExpr.and(CONTEXT_CHAT_LOCATION.isEqualTo(ChatAgentLocation.Panel), CONTEXT_CHAT_HAS_HIDDEN_EXCHANGES),
+				}
+			]
+		});
+	}
+
+	async run(accessor: ServicesAccessor, ...args: any[]) {
+		const chatWidgetService = accessor.get(IAideAgentWidgetService);
+		const widget = chatWidgetService.lastFocusedWidget;
+		const exchanges = widget?.viewModel?.model.getExchanges();
+		const hiddenExchanges = exchanges?.filter(exchange => exchange.shouldBeRemovedOnSend);
+		const lastHiddenExchange = hiddenExchanges?.slice(-1)[0];
+		if (!hiddenExchanges || !lastHiddenExchange) {
+			return;
+		}
+
+		const chatEditingService = accessor.get(IAideAgentEditingService);
+		const chatService = accessor.get(IAideAgentService);
+		const chatModel = chatService.getSession(lastHiddenExchange.session.sessionId);
+		if (chatModel?.initialLocation !== ChatAgentLocation.Panel) {
+			return;
+		}
+
+		const session = chatEditingService.currentEditingSession;
+		if (!session) {
+			return;
+		}
+
+		const exchangeId = lastHiddenExchange.id;
+		await session.restoreSnapshot(exchangeId);
+
+		// Restore all the hidden exchanges
+		for (const exchange of hiddenExchanges) {
+			await chatService.enableExchange(chatModel.sessionId, exchange.id);
 		}
 	}
 });
