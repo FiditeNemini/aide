@@ -731,6 +731,11 @@ export class AideAgentSessionProvider implements vscode.AideSessionParticipant {
 									message: `Invalid session`
 								});
 							}
+						} else if (error_string === 'LLM Client error: Rate limit exceeded') {
+							responseStream.stream.stage({ message: 'Error' });
+							responseStream.stream.toolTypeError({
+								message: `Usage limit exceeded. Please upgrade.`
+							});
 						} else {
 							responseStream.stream.toolTypeError({
 								message: `The LLM that you're using right now returned a response that does not adhere to the format our framework expects, and thus this request has failed. If you keep seeing this error, this is likely because the LLM is unable to follow our system instructions and it is recommended to switch over to one of our recommended models instead.`

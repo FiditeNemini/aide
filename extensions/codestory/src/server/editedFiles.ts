@@ -166,8 +166,8 @@ export class RecentEditsRetriever implements vscode.Disposable {
 				console.error(exception);
 			}
 		}
-		console.log('newContent');
-		console.log(newContent);
+		// console.log('newContent');
+		// console.log(newContent);
 
 		const diff = createGitDiff(uri.fsPath, oldContent, newContent);
 		return {
