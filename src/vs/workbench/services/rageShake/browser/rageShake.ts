@@ -17,6 +17,7 @@ import { IEnvironmentService } from '../../../../platform/environment/common/env
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 import { IProcessMainService } from '../../../../platform/process/common/process.js';
+import { IProductService } from '../../../../platform/product/common/productService.js';
 import { defaultButtonStyles } from '../../../../platform/theme/browser/defaultStyles.js';
 import { IHostService } from '../../host/browser/host.js';
 import { IRageShakeService, RageShakeView, RageShakeViewType } from '../common/rageShake.js';
@@ -64,6 +65,7 @@ export class RageShakeService extends Disposable implements IRageShakeService {
 		@IHostService private readonly hostService: IHostService,
 		@ICSAuthenticationService private readonly csAuthenticationService: ICSAuthenticationService,
 		@IEnvironmentService private readonly environmentService: IEnvironmentService,
+		@IProductService private readonly productService: IProductService
 	) {
 		super();
 
@@ -180,8 +182,11 @@ export class RageShakeService extends Disposable implements IRageShakeService {
 	private async sendFeedback() {
 		const currentView = this.currentView.get();
 
-		// Create the base data object
+		// @g-danna Replace commit with release
 		const data = {
+			version: this.productService.version,
+			commit: this.productService.commit,
+			quality: this.productService.quality,
 			systemInfo: this.systemInfo,
 			type: currentView,
 			message: currentView && this.messageMap.get(currentView) || undefined,
