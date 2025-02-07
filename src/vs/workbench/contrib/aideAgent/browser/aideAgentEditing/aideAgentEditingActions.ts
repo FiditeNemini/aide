@@ -15,7 +15,7 @@ import { IDialogService } from '../../../../../platform/dialogs/common/dialogs.j
 import { KeybindingWeight } from '../../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { ChatAgentLocation } from '../../common/aideAgentAgents.js';
-import { CONTEXT_CHAT_INPUT_HAS_TEXT, CONTEXT_CHAT_LOCATION, CONTEXT_CHAT_REQUEST_IN_PROGRESS, CONTEXT_CHAT_RESPONSE_HAS_SIDE_EFFECTS, CONTEXT_IN_CHAT_INPUT, CONTEXT_IN_CHAT_SESSION, CONTEXT_REQUEST } from '../../common/aideAgentContextKeys.js';
+import { CONTEXT_CHAT_CAN_REVERT_EXCHANGE, CONTEXT_CHAT_INPUT_HAS_TEXT, CONTEXT_CHAT_LOCATION, CONTEXT_CHAT_REQUEST_IN_PROGRESS, CONTEXT_IN_CHAT_INPUT } from '../../common/aideAgentContextKeys.js';
 import { applyingChatEditsFailedContextKey, CHAT_EDITING_MULTI_DIFF_SOURCE_RESOLVER_SCHEME, chatEditingResourceContextKey, chatEditingWidgetFileStateContextKey, decidedChatEditingResourceContextKey, hasAppliedChatEditsContextKey, hasUndecidedChatEditingResourceContextKey, IAideAgentEditingService, IChatEditingSession, WorkingSetEntryState } from '../../common/aideAgentEditingService.js';
 import { IAideAgentService } from '../../common/aideAgentService.js';
 import { isRequestVM, isResponseVM } from '../../common/aideAgentViewModel.js';
@@ -279,20 +279,12 @@ registerAction2(class RemoveAction extends Action2 {
 			category: CHAT_CATEGORY,
 			icon: Codicon.discard,
 			precondition: CONTEXT_CHAT_REQUEST_IN_PROGRESS.negate(),
-			keybinding: {
-				primary: KeyCode.Delete,
-				mac: {
-					primary: KeyMod.CtrlCmd | KeyCode.Backspace,
-				},
-				when: ContextKeyExpr.and(CONTEXT_CHAT_LOCATION.isEqualTo(ChatAgentLocation.Panel), CONTEXT_IN_CHAT_SESSION, CONTEXT_IN_CHAT_INPUT.negate()),
-				weight: KeybindingWeight.WorkbenchContrib,
-			},
 			menu: [
 				{
 					id: MenuId.AideAgentMessageTitle,
 					group: 'navigation',
 					order: 2,
-					when: ContextKeyExpr.and(CONTEXT_CHAT_LOCATION.isEqualTo(ChatAgentLocation.Panel), ContextKeyExpr.or(CONTEXT_REQUEST, CONTEXT_CHAT_RESPONSE_HAS_SIDE_EFFECTS))
+					when: ContextKeyExpr.and(CONTEXT_CHAT_LOCATION.isEqualTo(ChatAgentLocation.Panel), CONTEXT_CHAT_CAN_REVERT_EXCHANGE),
 				}
 			]
 		});

@@ -26,7 +26,7 @@ import { IExtensionService } from '../../../services/extensions/common/extension
 import { IRageShakeService } from '../../../services/rageShake/common/rageShake.js';
 import { ChatAgentLocation, IAideAgentAgentService, IChatAgent, IChatAgentCommand, IChatAgentData, IChatAgentRequest, IChatAgentResult } from './aideAgentAgents.js';
 import { CONTEXT_VOTE_UP_ENABLED } from './aideAgentContextKeys.js';
-import { AgentScope, ChatModel, ChatRequestModel, ChatResponseModel, IChatModel, IChatRequestVariableData, IChatResponseModel, IExportableChatData, ISerializableChatData, ISerializableChatDataIn, ISerializableChatsData, updateRanges } from './aideAgentModel.js';
+import { AgentScope, ChatModel, ChatRequestModel, ChatResponseModel, IChatModel, IChatRequestVariableData, IChatResponseModel, IExportableChatData, ISerializableChatData, ISerializableChatDataIn, ISerializableChatsData, isResponseModel, updateRanges } from './aideAgentModel.js';
 import { ChatRequestAgentPart, ChatRequestAgentSubcommandPart, ChatRequestSlashCommandPart, IParsedChatRequest, chatAgentLeader, chatSubcommandLeader, getPromptText } from './aideAgentParserTypes.js';
 import { ChatRequestParser } from './aideAgentRequestParser.js';
 import { IAideAgentService, IChatCompleteResponse, IChatDetail, IChatFollowup, IChatProgress, IChatSendRequestData, IChatSendRequestOptions, IChatSendRequestResponseState, IChatTransferredSessionData, IChatUserActionEvent } from './aideAgentService.js';
@@ -775,6 +775,18 @@ export class ChatService extends Disposable implements IAideAgentService {
 		}
 
 		await model.waitForInitialization();
+
+		// Check if the previous exchange was a response, and if it had any response parts.
+		// Sometimes, we end up creating empty exchanges from the sidecar. So if we detect this,
+		// just get rid of that unused exchange.
+		const exchanges = model.getExchanges();
+		const lastExchange = exchanges[exchanges.length - 1];
+		if (lastExchange &&
+			isResponseModel(lastExchange) &&
+			lastExchange.response.value.length === 0) {
+			// Remove the empty exchange before proceeding
+			this.removeExchange(sessionId, lastExchange.id);
+		}
 
 		const response = model.addResponse();
 		const cts = new CancellationTokenSource();

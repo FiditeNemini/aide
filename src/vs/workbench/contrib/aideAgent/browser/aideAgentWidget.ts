@@ -568,7 +568,7 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		}
 
 		if (hiddenCount > 0) {
-			this.hiddenExchangesMessageContainer.textContent = localize('hiddenExchanges', "{0} exchanges reverted", hiddenCount);
+			this.hiddenExchangesMessageContainer.textContent = localize('hiddenExchanges', "{0} steps reverted", hiddenCount);
 			dom.show(this.hiddenExchangesMessageContainer);
 		} else {
 			this.hiddenExchangesMessageContainer.textContent = '';

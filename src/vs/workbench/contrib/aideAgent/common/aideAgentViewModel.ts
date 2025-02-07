@@ -200,6 +200,19 @@ export class ChatViewModel extends Disposable implements IChatViewModel {
 
 	private _items: (ChatRequestViewModel | ChatResponseViewModel)[] = [];
 
+	private updateFirstResponseState(): void {
+		let lastRequestIndex = -1;
+		for (let i = 0; i < this._items.length; i++) {
+			const item = this._items[i];
+			if (isRequestVM(item)) {
+				lastRequestIndex = i;
+			} else if (isResponseVM(item)) {
+				// A response is "first" if it immediately follows a request
+				item.isFirst = i === lastRequestIndex + 1;
+			}
+		}
+	}
+
 	private removeItem(index: number) {
 		if (index >= 0) {
 			const items = this._items.splice(index, 1);
@@ -207,6 +220,7 @@ export class ChatViewModel extends Disposable implements IChatViewModel {
 			if (item instanceof ChatResponseViewModel) {
 				item.dispose();
 			}
+			this.updateFirstResponseState();
 		}
 	}
 
@@ -220,13 +234,7 @@ export class ChatViewModel extends Disposable implements IChatViewModel {
 			}
 		}
 		this._items.push(item);
-
-		// Set isFirst for response items based on previous item
-		if (isResponseVM(item)) {
-			// Get the second-last item
-			const previousItem = this._items[this._items.length - 2];
-			item.isFirst = !!previousItem && isRequestVM(previousItem);
-		}
+		this.updateFirstResponseState();
 	}
 
 	private _inputPlaceholder: string | undefined = undefined;
@@ -427,8 +435,23 @@ export class ChatResponseViewModel extends Disposable implements IChatResponseVi
 		return this._model.id;
 	}
 
-	isFirst = false;
-	isLast = true;
+	private _isFirst: boolean = false;
+	get isFirst() {
+		return this._isFirst;
+	}
+
+	set isFirst(_isFirst: boolean) {
+		this._isFirst = _isFirst;
+	}
+
+	private _isLast: boolean = true;
+	get isLast() {
+		return this._isLast;
+	}
+
+	set isLast(_isLast: boolean) {
+		this._isLast = _isLast;
+	}
 
 	get dataId() {
 		return this._model.id + `_${this._modelChangeCount}` + `_${ChatModelInitState[this._model.session.initState]}`;
