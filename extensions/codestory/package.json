@@ -197,7 +197,7 @@
     "semver": "^7.6.3",
     "ts-morph": "^19.0.0",
     "web-tree-sitter": "^0.20.8",
-    "winston": "^3.10.0",
-    "winston-vscode": "^1.0.0"
+    "winston": "^3.17.0",
+    "winston-transport-vscode": "^0.1.0"
   }
 }
