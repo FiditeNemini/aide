@@ -1031,6 +1031,7 @@ export class ChatModel extends Disposable implements IChatModel {
 					const variableData: IChatRequestVariableData = this.reviveVariableData(raw.variableData);
 					const request = new ChatRequestModel(this, parsedRequest, variableData);
 					request.shouldBeRemovedOnSend = !!raw.isHidden;
+					return request;
 				} else if (raw.type === 'response') {
 					if (raw.response || raw.result || (raw as any).responseErrorDetails) {
 						const agent = (raw.agent && 'metadata' in raw.agent) ? // Check for the new format, ignore entries in the old format
