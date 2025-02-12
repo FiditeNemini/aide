@@ -1153,7 +1153,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		const overviewWorkingSet = overviewTitle.querySelector('span') ?? dom.append(overviewTitle, $('span'));
 		const overviewFileCount = overviewTitle.querySelector('span.working-set-count') ?? dom.append(overviewTitle, $('span.working-set-count'));
 
-		overviewWorkingSet.textContent = localize('chatEditingSession.workingSet', 'Working Set');
+		overviewWorkingSet.textContent = localize('chatEditingSession.workingSet', 'Session files');
 		overviewTitle.ariaLabel = overviewTitle.textContent;
 		overviewTitle.tabIndex = 0;
 

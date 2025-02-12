@@ -147,16 +147,16 @@ export const enum ChatEditingSessionState {
 
 export const CHAT_EDITING_MULTI_DIFF_SOURCE_RESOLVER_SCHEME = 'aide-agent-editing-multi-diff-source';
 
-export const chatEditingWidgetFileStateContextKey = new RawContextKey<WorkingSetEntryState>('chatEditingWidgetFileState', undefined, localize('chatEditingWidgetFileState', "The current state of the file in the chat editing widget"));
-export const chatEditingWidgetFileReadonlyContextKey = new RawContextKey<boolean>('chatEditingWidgetFileReadonly', undefined, localize('chatEditingWidgetFileReadonly', "Whether the file has been marked as read-only in the chat editing widget"));
-export const chatEditingAgentSupportsReadonlyReferencesContextKey = new RawContextKey<boolean>('chatEditingAgentSupportsReadonlyReferences', undefined, localize('chatEditingAgentSupportsReadonlyReferences', "Whether the chat editing agent supports readonly references (temporary)"));
-export const decidedChatEditingResourceContextKey = new RawContextKey<string[]>('decidedChatEditingResource', []);
-export const chatEditingResourceContextKey = new RawContextKey<string | undefined>('chatEditingResource', undefined);
-export const inChatEditingSessionContextKey = new RawContextKey<boolean | undefined>('inChatEditingSession', undefined);
-export const applyingChatEditsContextKey = new RawContextKey<boolean | undefined>('isApplyingChatEdits', undefined);
-export const hasUndecidedChatEditingResourceContextKey = new RawContextKey<boolean | undefined>('hasUndecidedChatEditingResource', false);
-export const hasAppliedChatEditsContextKey = new RawContextKey<boolean | undefined>('hasAppliedChatEdits', false);
-export const applyingChatEditsFailedContextKey = new RawContextKey<boolean | undefined>('applyingChatEditsFailed', false);
+export const chatEditingWidgetFileStateContextKey = new RawContextKey<WorkingSetEntryState>('aideAgentEditingWidgetFileState', undefined, localize('chatEditingWidgetFileState', "The current state of the file in the chat editing widget"));
+export const chatEditingWidgetFileReadonlyContextKey = new RawContextKey<boolean>('aideAgentEditingWidgetFileReadonly', undefined, localize('chatEditingWidgetFileReadonly', "Whether the file has been marked as read-only in the chat editing widget"));
+export const chatEditingAgentSupportsReadonlyReferencesContextKey = new RawContextKey<boolean>('aideAgentEditingAgentSupportsReadonlyReferences', undefined, localize('chatEditingAgentSupportsReadonlyReferences', "Whether the chat editing agent supports readonly references (temporary)"));
+export const decidedChatEditingResourceContextKey = new RawContextKey<string[]>('decidedAideAgentEditingResource', []);
+export const chatEditingResourceContextKey = new RawContextKey<string | undefined>('aideAgentEditingResource', undefined);
+export const inChatEditingSessionContextKey = new RawContextKey<boolean | undefined>('inAideAgentEditingSession', undefined);
+export const applyingChatEditsContextKey = new RawContextKey<boolean | undefined>('isApplyingAideAgentEdits', undefined);
+export const hasUndecidedChatEditingResourceContextKey = new RawContextKey<boolean | undefined>('hasUndecidedAideAgentEditingResource', false);
+export const hasAppliedChatEditsContextKey = new RawContextKey<boolean | undefined>('hasAppliedAideAgentEdits', false);
+export const applyingChatEditsFailedContextKey = new RawContextKey<boolean | undefined>('applyingAideAgentEditsFailed', false);
 
 export const enum ChatEditKind {
 	Created,

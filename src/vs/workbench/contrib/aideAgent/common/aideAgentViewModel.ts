@@ -435,6 +435,13 @@ export class ChatResponseViewModel extends Disposable implements IChatResponseVi
 		return this._model.id;
 	}
 
+	get dataId() {
+		return this._model.id +
+			`_${this._modelChangeCount}` +
+			`_${ChatModelInitState[this._model.session.initState]}` +
+			(this.isLast ? '_last' : '');
+	}
+
 	private _isFirst: boolean = false;
 	get isFirst() {
 		return this._isFirst;
@@ -451,10 +458,6 @@ export class ChatResponseViewModel extends Disposable implements IChatResponseVi
 
 	set isLast(_isLast: boolean) {
 		this._isLast = _isLast;
-	}
-
-	get dataId() {
-		return this._model.id + `_${this._modelChangeCount}` + `_${ChatModelInitState[this._model.session.initState]}`;
 	}
 
 	get sessionId() {

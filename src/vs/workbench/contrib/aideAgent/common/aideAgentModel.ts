@@ -9,6 +9,7 @@ import { Emitter, Event } from '../../../../base/common/event.js';
 import { IMarkdownString, MarkdownString, isMarkdownString } from '../../../../base/common/htmlContent.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { revive } from '../../../../base/common/marshalling.js';
+import { Schemas } from '../../../../base/common/network.js';
 import { equals } from '../../../../base/common/objects.js';
 import { basename, isEqual } from '../../../../base/common/resources.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
@@ -276,38 +277,41 @@ export class Response extends Disposable implements IResponse {
 
 	updateContent(progress: IChatProgressResponseContent | IChatTextEdit | IChatTask, quiet?: boolean): void {
 		if (progress.kind === 'markdownContent') {
-			const responsePartLength = this._responseParts.length - 1;
-			const lastResponsePart = this._responseParts[responsePartLength];
+			// last response which is NOT a text edit group because we do want to support heterogenous streaming but not have
+			// the MD be chopped up by text edit groups (and likely other non-renderable parts)
+			const lastResponsePart = this._responseParts
+				.filter(p => p.kind !== 'textEditGroup')
+				.at(-1);
 
 			if (!lastResponsePart || lastResponsePart.kind !== 'markdownContent' || !canMergeMarkdownStrings(lastResponsePart.content, progress.content)) {
 				// The last part can't be merged with- not markdown, or markdown with different permissions
 				this._responseParts.push(progress);
 			} else {
-				lastResponsePart.content = appendMarkdownString(lastResponsePart.content, progress.content);
+				// Don't modify the current object, since it's being diffed by the renderer
+				const idx = this._responseParts.indexOf(lastResponsePart);
+				this._responseParts[idx] = { ...lastResponsePart, content: appendMarkdownString(lastResponsePart.content, progress.content) };
 			}
 			this._updateRepr(quiet);
 		} else if (progress.kind === 'textEdit') {
-			if (progress.edits.length > 0) {
-				// merge text edits for the same file no matter when they come in
-				let found = false;
-				for (let i = 0; !found && i < this._responseParts.length; i++) {
-					const candidate = this._responseParts[i];
-					if (candidate.kind === 'textEditGroup' && isEqual(candidate.uri, progress.uri)) {
-						candidate.edits.push(progress.edits);
-						candidate.done = progress.done;
-						found = true;
-					}
+			// merge text edits for the same file no matter when they come in
+			let found = false;
+			for (let i = 0; !found && i < this._responseParts.length; i++) {
+				const candidate = this._responseParts[i];
+				if (candidate.kind === 'textEditGroup' && isEqual(candidate.uri, progress.uri)) {
+					candidate.edits.push(progress.edits);
+					candidate.done = progress.done;
+					found = true;
 				}
-				if (!found) {
-					this._responseParts.push({
-						kind: 'textEditGroup',
-						uri: progress.uri,
-						edits: [progress.edits],
-						done: progress.done
-					});
-				}
-				this._updateRepr(quiet);
 			}
+			if (!found) {
+				this._responseParts.push({
+					kind: 'textEditGroup',
+					uri: progress.uri,
+					edits: [progress.edits],
+					done: progress.done
+				});
+			}
+			this._updateRepr(quiet);
 		} else if (progress.kind === 'progressTask') {
 			// Add a new resolving part
 			const responsePosition = this._responseParts.push(progress) - 1;
@@ -339,40 +343,12 @@ export class Response extends Disposable implements IResponse {
 	}
 
 	private _updateRepr(quiet?: boolean) {
-		const inlineRefToRepr = (part: IChatContentInlineReference) =>
-			'uri' in part.inlineReference ? basename(part.inlineReference.uri) : 'name' in part.inlineReference ? part.inlineReference.name : basename(part.inlineReference);
-
-		this._responseRepr = this._responseParts.map(part => {
-			if (part.kind === 'treeData') {
-				return '';
-			} else if (part.kind === 'inlineReference') {
-				return inlineRefToRepr(part);
-			} else if (part.kind === 'command') {
-				return part.command.title;
-			} else if (part.kind === 'textEditGroup') {
-				return localize('editsSummary', "Made changes.");
-			} else if (part.kind === 'progressMessage' || part.kind === 'codeblockUri') {
-				return '';
-			} else if (part.kind === 'confirmation') {
-				return `${part.title}\n${part.message}`;
-			} else if (part.kind === 'planStep') {
-				return part.description.value;
-			} else if (part.kind === 'stage') {
-				return '';
-			} else if (part.kind === 'toolTypeError') {
-				return part.message;
-			} else {
-				return part.content.value;
-			}
-		})
-			.filter(s => s.length > 0)
-			.join('\n\n');
-
+		this._responseRepr = this.partsToRepr(this._responseParts);
 		this._responseRepr += this._citations.length ? '\n\n' + getCodeCitationsMessage(this._citations) : '';
 
 		this._markdownContent = this._responseParts.map(part => {
 			if (part.kind === 'inlineReference') {
-				return inlineRefToRepr(part);
+				return this.inlineRefToRepr(part);
 			} else if (part.kind === 'markdownContent' || part.kind === 'markdownVuln') {
 				return part.content.value;
 			} else {
@@ -380,11 +356,83 @@ export class Response extends Disposable implements IResponse {
 			}
 		})
 			.filter(s => s.length > 0)
-			.join('\n\n');
+			.join('');
 
 		if (!quiet) {
 			this._onDidChangeValue.fire();
 		}
+	}
+
+	private partsToRepr(parts: readonly IChatProgressResponseContent[]): string {
+		const blocks: string[] = [];
+		let currentBlockSegments: string[] = [];
+
+		for (const part of parts) {
+			let segment: { text: string; isBlock?: boolean } | undefined;
+			switch (part.kind) {
+				case 'treeData':
+				case 'progressMessage':
+				case 'codeblockUri':
+				case 'stage':
+					// Ignore
+					continue;
+				case 'inlineReference':
+					segment = { text: this.inlineRefToRepr(part) };
+					break;
+				case 'command':
+					segment = { text: part.command.title, isBlock: true };
+					break;
+				case 'textEditGroup':
+					segment = { text: localize('editsSummary', "Made changes."), isBlock: true };
+					break;
+				case 'confirmation':
+					segment = { text: `${part.title}\n${part.message}`, isBlock: true };
+					break;
+				case 'planStep':
+					segment = { text: part.description.value };
+					break;
+				case 'toolTypeError':
+					segment = { text: part.message };
+					break;
+				default:
+					segment = { text: part.content.value };
+					break;
+			}
+
+			if (segment.isBlock) {
+				if (currentBlockSegments.length) {
+					blocks.push(currentBlockSegments.join(''));
+					currentBlockSegments = [];
+				}
+				blocks.push(segment.text);
+			} else {
+				currentBlockSegments.push(segment.text);
+			}
+		}
+
+		if (currentBlockSegments.length) {
+			blocks.push(currentBlockSegments.join(''));
+		}
+
+		return blocks.join('\n\n');
+	}
+
+	private inlineRefToRepr(part: IChatContentInlineReference) {
+		if ('uri' in part.inlineReference) {
+			return this.uriToRepr(part.inlineReference.uri);
+		}
+
+		return 'name' in part.inlineReference
+			? '`' + part.inlineReference.name + '`'
+			: this.uriToRepr(part.inlineReference);
+	}
+
+	private uriToRepr(uri: URI): string {
+		if (uri.scheme === Schemas.http || uri.scheme === Schemas.https) {
+			return uri.toString(false);
+		}
+
+		return basename(uri);
 	}
 }
 

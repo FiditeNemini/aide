@@ -155,7 +155,7 @@ export class ChatEditingService extends Disposable implements IAideAgentEditingS
 		// todo@connor4312: temporary until chatReadonlyPromptReference proposal is finalized
 		const readonlyEnabledContextKey = chatEditingAgentSupportsReadonlyReferencesContextKey.bindTo(contextKeyService);
 		const setReadonlyFilesEnabled = () => {
-			const enabled = productService.quality !== 'stable' && extensionService.extensions.some(e => e.enabledApiProposals?.includes('chatReadonlyPromptReference'));
+			const enabled = productService.quality !== 'stable';
 			readonlyEnabledContextKey.set(enabled);
 		};
 		setReadonlyFilesEnabled();
@@ -422,7 +422,7 @@ function observeArrayChanges<T>(obs: IObservable<T[]>, compare: (a: T, b: T) => 
 
 class ChatDecorationsProvider extends Disposable implements IDecorationsProvider {
 
-	readonly label: string = localize('chat', "Chat Editing");
+	readonly label: string = localize('aideAgent', "Aide");
 
 	private readonly _currentEntries = derived<readonly IModifiedFileEntry[]>(this, (r) => {
 		const session = this._session.read(r);
@@ -473,7 +473,7 @@ class ChatDecorationsProvider extends Disposable implements IDecorationsProvider
 			return {
 				weight: 1000,
 				letter: Codicon.diffModified,
-				tooltip: defaultAgentName ? localize('chatEditing.modified', "Pending changes from {0}", defaultAgentName) : localize('chatEditing.modified2', "Pending changes from chat"),
+				tooltip: defaultAgentName ? localize('aideAgentEditing.modified', "Pending changes from {0}", defaultAgentName) : localize('aideAgentEditing.modified2', "Pending changes from chat"),
 				bubble: true
 			};
 		}

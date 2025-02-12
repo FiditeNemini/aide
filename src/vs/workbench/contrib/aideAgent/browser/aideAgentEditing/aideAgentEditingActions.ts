@@ -274,7 +274,7 @@ registerAction2(class RemoveAction extends Action2 {
 	constructor() {
 		super({
 			id: 'workbench.action.aideAgent.undoEdits',
-			title: localize2('chat.undoEdits.label', "Revert until here"),
+			title: localize2('aideAgent.undoEdits.label', "Revert until here"),
 			f1: false,
 			category: CHAT_CATEGORY,
 			icon: Codicon.discard,
@@ -335,7 +335,7 @@ registerAction2(class RedoAllAction extends Action2 {
 	constructor() {
 		super({
 			id: 'workbench.action.aideAgent.redoAllEdits',
-			title: localize2('chat.redoEdits.label', "Redo all reverted changes"),
+			title: localize2('aideAgent.redoEdits.label', "Redo all reverted changes"),
 			f1: false,
 			category: CHAT_CATEGORY,
 			icon: Codicon.redo,

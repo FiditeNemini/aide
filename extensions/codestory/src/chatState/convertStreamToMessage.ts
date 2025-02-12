@@ -153,6 +153,11 @@ export const readJsonFile = (filePath: string): any => {
 // 	Math.floor(Math.random() * (max - min + 1)) + min;
 
 const pattern = /(?:^|\s)(\w+\s+at\s+[\w/.-]+)?(.*)/s;
+export interface EditMapValue {
+	answerSplitter: AnswerSplitOnNewLineAccumulatorStreaming;
+	streamProcessor: StreamProcessor;
+}
+
 export const reportAgentEventsToChat = async (
 	editMode: boolean,
 	stream: AsyncIterableIterator<SideCarAgentEvent>,
@@ -166,7 +171,7 @@ export const reportAgentEventsToChat = async (
 	// we are sending async edits and they might go out of scope
 	limiter: Limiter<any>,
 ): Promise<void> => {
-	const editsMap = new Map();
+	const editsMap = new Map<string, EditMapValue>();
 	const asyncIterable = {
 		[Symbol.asyncIterator]: () => stream
 	};
@@ -319,8 +324,8 @@ export const reportAgentEventsToChat = async (
 							continue;
 						}
 						const documentLines = document.getText().split(/\r\n|\r|\n/g);
-						console.log('editStreaming.start', editStreamEvent.fs_file_path);
-						console.log(editStreamEvent.range);
+						// console.log('editStreaming.start', editStreamEvent.fs_file_path);
+						// console.log(editStreamEvent.range);
 						editsMap.set(editStreamEvent.edit_request_id, {
 							answerSplitter: new AnswerSplitOnNewLineAccumulatorStreaming(),
 							streamProcessor: new StreamProcessor(
@@ -340,29 +345,31 @@ export const reportAgentEventsToChat = async (
 					} else if ('End' === editStreamEvent.event) {
 						// drain the lines which might be still present
 						const editsManager = editsMap.get(editStreamEvent.edit_request_id);
-						while (true) {
-							const currentLine = editsManager.answerSplitter.getLine();
-							if (currentLine === null) {
-								break;
+						if (editsManager) {
+							while (true) {
+								const currentLine = editsManager.answerSplitter.getLine();
+								if (currentLine === null) {
+									break;
+								}
+								// console.log('end::process_line');
+								await editsManager.streamProcessor.processLine(currentLine);
 							}
-							console.log('end::process_line');
-							await editsManager.streamProcessor.processLine(currentLine);
+							// console.log('end::cleanup');
+							editsManager.streamProcessor.complete();
 						}
-						console.log('end::cleanup');
-						editsManager.streamProcessor.cleanup();
 						// delete this from our map
 						editsMap.delete(editStreamEvent.edit_request_id);
 						// we have the updated code (we know this will be always present, the types are a bit meh)
 					} else if (editStreamEvent.event.Delta) {
 						const editsManager = editsMap.get(editStreamEvent.edit_request_id);
-						if (editsManager !== undefined) {
+						if (editsManager) {
 							editsManager.answerSplitter.addDelta(editStreamEvent.event.Delta);
 							while (true) {
 								const currentLine = editsManager.answerSplitter.getLine();
 								if (currentLine === null) {
 									break;
 								}
-								console.log('delta::process_line');
+								// console.log('delta::process_line');
 								await editsManager.streamProcessor.processLine(currentLine);
 							}
 						}
@@ -548,12 +555,13 @@ export class StreamProcessor {
 		this.sentEdits = false;
 	}
 
-	async cleanup() {
+	async complete() {
 		// for cleanup we are going to replace the lines from the documentLineIndex to the documentLineLimit with ""
 		// console.log('cleanup', this.documentLineIndex, this.documentLineLimit);
 		if (this.documentLineIndex <= this.documentLineLimit) {
 			this.document.replaceLines(this.documentLineIndex, this.documentLineLimit, new AdjustedLineContent('', 0, '', 0));
 		}
+		this.document.complete();
 	}
 
 	async processLine(answerStreamLine: AnswerStreamLine) {
@@ -819,5 +827,9 @@ class DocumentManager {
 			});
 		}
 		return index + 2;
+	}
+
+	complete() {
+		this.progress.textEdit(this.uri, true);
 	}
 }

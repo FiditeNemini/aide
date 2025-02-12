@@ -297,7 +297,7 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 		}
 
 		for (const entry of activeEditors) {
-			this._workingSet.set(entry, { state: WorkingSetEntryState.Transient, description: localize('chatEditing.transient', "Open Editor") });
+			this._workingSet.set(entry, { state: WorkingSetEntryState.Transient, description: localize('aideAgentEditing.transient', "Open Editor") });
 			didChange = true;
 		}
 
@@ -822,7 +822,7 @@ class ChatEditingSessionStorage {
 
 	private _getStorageLocation(): URI {
 		const workspaceId = this._workspaceContextService.getWorkspace().id;
-		return joinPath(this._environmentService.workspaceStorageHome, workspaceId, 'chatEditingSessions', this.chatSessionId);
+		return joinPath(this._environmentService.workspaceStorageHome, workspaceId, 'aideAgentEditingSessions', this.chatSessionId);
 	}
 
 	public async restoreState(): Promise<StoredSessionState | undefined> {

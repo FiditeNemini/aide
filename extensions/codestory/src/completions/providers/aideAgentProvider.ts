@@ -7,7 +7,7 @@ import * as http from 'http';
 import * as net from 'net';
 import * as os from 'os';
 import * as vscode from 'vscode';
-import { AnswerSplitOnNewLineAccumulatorStreaming, StreamProcessor } from '../../chatState/convertStreamToMessage';
+import { AnswerSplitOnNewLineAccumulatorStreaming, EditMapValue, StreamProcessor } from '../../chatState/convertStreamToMessage';
 import { CSEventHandler } from '../../csEvents/csEventHandler';
 import postHogClient from '../../posthog/client';
 import { applyEdits, applyEditsDirectly, } from '../../server/applyEdits';
@@ -97,7 +97,7 @@ export class AideAgentSessionProvider implements vscode.AideSessionParticipant {
 	editorUrl: string | undefined;
 	private iterationEdits = new vscode.WorkspaceEdit();
 	private requestHandler: http.Server | null = null;
-	private editsMap = new Map();
+	private editsMap = new Map<string, EditMapValue>();
 	private eventQueue: vscode.AideAgentRequest[] = [];
 	private openResponseStream: vscode.AideAgentResponseStream | undefined;
 	private processingEvents: Map<string, boolean> = new Map();
@@ -301,14 +301,16 @@ export class AideAgentSessionProvider implements vscode.AideSessionParticipant {
 		} else if ('End' === editStreamEvent.event) {
 			// drain the lines which might be still present
 			const editsManager = this.editsMap.get(editStreamEvent.edit_request_id);
-			while (true) {
-				const currentLine = editsManager.answerSplitter.getLine();
-				if (currentLine === null) {
-					break;
+			if (editsManager) {
+				while (true) {
+					const currentLine = editsManager.answerSplitter.getLine();
+					if (currentLine === null) {
+						break;
+					}
+					await editsManager.streamProcessor.processLine(currentLine);
 				}
-				await editsManager.streamProcessor.processLine(currentLine);
+				editsManager.streamProcessor.complete();
 			}
-			editsManager.streamProcessor.cleanup();
 
 			await vscode.workspace.save(vscode.Uri.file(editStreamEvent.fs_file_path)); // save files upon stream completion
 			// delete this from our map
