@@ -56,6 +56,7 @@ import { AideAgentAccessibilityService } from './aideAgentAccessibilityService.j
 import { ChatInputBoxContentProvider } from './aideAgentEdinputInputContentProvider.js';
 import { ChatEditingService } from './aideAgentEditing/aideAgentEditingService.js';
 import { ChatEditor, IChatEditorOptions } from './aideAgentEditor.js';
+import { registerChatEditorActions } from './aideAgentEditorActions.js';
 import { ChatEditorController } from './aideAgentEditorController.js';
 import { ChatEditorInput, ChatEditorInputSerializer } from './aideAgentEditorInput.js';
 import { ChatEditorOverlayController } from './aideAgentEditorOverlay.js';
@@ -286,6 +287,7 @@ registerNewChatActions();
 registerChatContextActions();
 registerChatDeveloperActions();
 registerAideAgentFloatingWidgetActions();
+registerChatEditorActions();
 
 registerDevtoolsActions();
 

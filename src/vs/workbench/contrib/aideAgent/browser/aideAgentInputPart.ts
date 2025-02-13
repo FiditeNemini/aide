@@ -73,7 +73,6 @@ import { ResourceLabels } from '../../../browser/labels.js';
 import { ACTIVE_GROUP, IEditorService, SIDE_GROUP } from '../../../services/editor/common/editorService.js';
 import { AccessibilityVerbositySettingId } from '../../accessibility/browser/accessibilityConfiguration.js';
 import { AccessibilityCommandId } from '../../accessibility/common/accessibilityCommands.js';
-import { IWorkingSetEntry } from '../../chat/browser/chatInputPart.js';
 import { getSimpleCodeEditorWidgetOptions, getSimpleEditorOptions, setupSimpleEditorSelectionStyling } from '../../codeEditor/browser/simpleEditorOptions.js';
 import { revealInSideBarCommand } from '../../files/browser/fileActions.contribution.js';
 import { ModelSelectionIndicator } from '../../preferences/browser/modelSelectionIndicator.js';
@@ -115,6 +114,11 @@ interface IChatInputPartOptions {
 	};
 	editorOverflowWidgetsDomNode?: HTMLElement;
 	preventChatEditToggle?: boolean;
+}
+
+export interface IWorkingSetEntry {
+	uri: URI;
+	isMarkedReadonly?: boolean;
 }
 
 export class ChatInputPart extends Disposable implements IHistoryNavigationWidget {

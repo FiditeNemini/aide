@@ -15,7 +15,6 @@ import { Action2, MenuId, MenuRegistry, registerAction2 } from '../../../../plat
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { ACTIVE_GROUP, IEditorService } from '../../../services/editor/common/editorService.js';
-import { ctxNotebookHasEditorModification } from '../../notebook/browser/contrib/chatEdit/notebookChatEditContext.js';
 import { getNotebookEditorFromEditorPane } from '../../notebook/browser/notebookBrowser.js';
 import { CONTEXT_CHAT_REQUEST_IN_PROGRESS } from '../common/aideAgentContextKeys.js';
 import { hasUndecidedChatEditingResourceContextKey, IAideAgentEditingService } from '../common/aideAgentEditingService.js';
@@ -39,7 +38,7 @@ abstract class NavigateAction extends Action2 {
 					? KeyMod.Alt | KeyCode.F5
 					: KeyMod.Alt | KeyMod.Shift | KeyCode.F5,
 				weight: KeybindingWeight.EditorContrib,
-				when: ContextKeyExpr.and(ContextKeyExpr.or(ctxHasEditorModification, ctxNotebookHasEditorModification), EditorContextKeys.focus),
+				when: ContextKeyExpr.and(ctxHasEditorModification, EditorContextKeys.focus),
 			},
 			f1: true,
 			menu: {

@@ -200,7 +200,7 @@ class ChatEditorOverlayWidget implements IOverlayWidget {
 	}
 
 	getId(): string {
-		return 'chatEditorOverlayWidget';
+		return 'aideAgentEditorOverlayWidget';
 	}
 
 	getDomNode(): HTMLElement {
