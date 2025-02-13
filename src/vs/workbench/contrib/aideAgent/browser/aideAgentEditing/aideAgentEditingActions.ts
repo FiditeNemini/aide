@@ -5,13 +5,11 @@
 
 import { Codicon } from '../../../../../base/common/codicons.js';
 import { KeyCode, KeyMod } from '../../../../../base/common/keyCodes.js';
-import { basename } from '../../../../../base/common/resources.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ServicesAccessor } from '../../../../../editor/browser/editorExtensions.js';
 import { localize, localize2 } from '../../../../../nls.js';
 import { Action2, MenuId, registerAction2 } from '../../../../../platform/actions/common/actions.js';
 import { ContextKeyExpr } from '../../../../../platform/contextkey/common/contextkey.js';
-import { IDialogService } from '../../../../../platform/dialogs/common/dialogs.js';
 import { KeybindingWeight } from '../../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { ChatAgentLocation } from '../../common/aideAgentAgents.js';
@@ -210,12 +208,12 @@ registerAction2(ChatEditingDiscardAllAction);
 
 export async function discardAllEditsWithConfirmation(accessor: ServicesAccessor): Promise<boolean> {
 	const chatEditingService = accessor.get(IAideAgentEditingService);
-	const dialogService = accessor.get(IDialogService);
 	const currentEditingSession = chatEditingService.currentEditingSession;
 	if (!currentEditingSession) {
 		return false;
 	}
 
+	/*
 	// Ask for confirmation if there are any edits
 	const entries = currentEditingSession.entries.get();
 	if (entries.length > 0) {
@@ -231,6 +229,7 @@ export async function discardAllEditsWithConfirmation(accessor: ServicesAccessor
 			return false;
 		}
 	}
+	*/
 
 	await currentEditingSession.reject();
 	return true;
