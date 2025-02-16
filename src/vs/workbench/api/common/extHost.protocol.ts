@@ -1458,6 +1458,7 @@ export interface ExtHostAideAgentAgentsShape {
 	$detectChatParticipant(handle: number, request: Dto<IChatAgentRequest>, context: { history: IAideAgentAgentHistoryEntryDto[] }, options: { participants: IChatParticipantMetadata[]; location: AideAgentLocation }, token: CancellationToken): Promise<IChatParticipantDetectionResult | null | undefined>;
 	$provideSampleQuestions(handle: number, location: AideAgentLocation, token: CancellationToken): Promise<IChatFollowup[] | undefined>;
 	$initSession(handle: number, sessionId: string): void;
+	$moveToCheckpoint(handle: number, sessionId: string, exchangeId: string): Promise<void>;
 	$releaseSession(sessionId: string): void;
 }
 

@@ -330,7 +330,7 @@ export class ExtHostAideAgentAgents2 extends Disposable implements ExtHostAideAg
 			extension, id, this._proxy, handle,
 			// Preserve the correct 'this' context
 			(sessionId: string) => this.initResponse(sessionId),
-			handler.newSession, handler.handleEvent
+			handler.newSession, handler.handleEvent, handler.moveToCheckpoint,
 		);
 		this._agents.set(handle, agent);
 
@@ -403,6 +403,15 @@ export class ExtHostAideAgentAgents2 extends Disposable implements ExtHostAideAg
 		}
 
 		return agent.initSession(sessionId);
+	}
+
+	async $moveToCheckpoint(handle: number, sessionId: string, exchangeId: string): Promise<void> {
+		const agent = this._agents.get(handle);
+		if (!agent) {
+			throw new Error(`[CHAT](${handle}) CANNOT init session because the agent is not registered`);
+		}
+
+		await agent.moveToCheckpoint(sessionId, exchangeId);
 	}
 
 	async $invokeAgent(handle: number, requestDto: Dto<IChatAgentRequest>, context: { history: IChatAgentHistoryEntryDto[] }, token: CancellationToken): Promise<IChatAgentResult | undefined> {
@@ -644,10 +653,15 @@ class ExtHostChatAgent {
 		private _initResponse: vscode.AideSessionEventSender,
 		private _sessionHandler: vscode.AideSessionHandler,
 		private _requestHandler: vscode.AideSessionEventHandler,
+		private _moveToCheckpointHandler: vscode.AideMoveToCheckpointHandler,
 	) { }
 
 	initSession(sessionId: string): void {
 		this._sessionHandler(sessionId);
+	}
+
+	async moveToCheckpoint(sessionId: string, exchangeId: string): Promise<void> {
+		this._moveToCheckpointHandler(sessionId, exchangeId);
 	}
 
 	acceptFeedback(feedback: vscode.ChatResultFeedback) {

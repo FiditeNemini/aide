@@ -1427,19 +1427,18 @@ export class SideCarClient {
 		}
 	}
 
-	async *handleSessionUndo(
+	async moveToCheckpoint(
 		sessionId: string,
 		exchangeId: string,
-		editorUrl: string,
-	) {
+	): Promise<void> {
 		const baseUrl = new URL(this._url);
-		baseUrl.pathname = '/api/agentic/user_handle_session_undo';
+		baseUrl.pathname = '/api/agentic/move_to_checkpoint';
 		const url = baseUrl.toString();
 		const body = {
 			session_id: sessionId,
 			exchange_id: exchangeId,
-			editor_url: editorUrl,
 		};
+
 		await fetch(url, {
 			method: 'POST',
 			headers: {

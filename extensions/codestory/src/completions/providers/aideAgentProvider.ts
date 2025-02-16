@@ -173,8 +173,7 @@ export class AideAgentSessionProvider implements vscode.AideSessionParticipant {
 		this.aideAgent = vscode.aideAgent.createChatParticipant('aide', {
 			newSession: this.newSession.bind(this),
 			handleEvent: this.handleEvent.bind(this),
-			// handleExchangeUserAction: this.handleExchangeUserAction.bind(this),
-			// handleSessionUndo: this.handleSessionUndo.bind(this),
+			moveToCheckpoint: this.moveToCheckpoint.bind(this),
 		});
 		this.aideAgent.iconPath = vscode.Uri.joinPath(vscode.extensions.getExtension('codestory-ghost.codestoryai')?.extensionUri ?? vscode.Uri.parse(''), 'assets', 'aide-agent.png');
 		this.aideAgent.requester = {
@@ -363,11 +362,6 @@ export class AideAgentSessionProvider implements vscode.AideSessionParticipant {
 		// this.sessionId = sessionId;
 	}
 
-	handleSessionUndo(sessionId: string, exchangeId: string): void {
-		// TODO(skcd): Handle this properly that we are doing an undo over here
-		this.sidecarClient.handleSessionUndo(sessionId, exchangeId, this.editorUrl!);
-	}
-
 	/**
 	 * TODO(codestory): We want to get this exchange feedback on each exchange
 	 * either automagically or when the user invokes it
@@ -404,6 +398,10 @@ export class AideAgentSessionProvider implements vscode.AideSessionParticipant {
 			this.processingEvents.set(uniqueId, true);
 			this.processEvent(event);
 		}
+	}
+
+	async moveToCheckpoint(sessionId: string, exchangeId: string): Promise<void> {
+		await this.sidecarClient.moveToCheckpoint(sessionId, exchangeId);
 	}
 
 	// consider putting posthog event here?

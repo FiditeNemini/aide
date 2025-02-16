@@ -326,6 +326,8 @@ registerAction2(class RemoveAction extends Action2 {
 			for (const exchange of exchangesToDisable) {
 				await chatService.disableExchange(item.sessionId, exchange.id);
 			}
+
+			await chatService.moveToExchange(chatModel.sessionId, chatExchanges[itemIndex > 0 ? itemIndex - 1 : itemIndex].id);
 		}
 	}
 });
@@ -378,5 +380,7 @@ registerAction2(class RedoAllAction extends Action2 {
 		for (const exchange of hiddenExchanges) {
 			await chatService.enableExchange(chatModel.sessionId, exchange.id);
 		}
+
+		await chatService.moveToExchange(chatModel.sessionId, exchangeId);
 	}
 });
