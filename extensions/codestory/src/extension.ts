@@ -37,7 +37,7 @@ export let SIDECAR_CLIENT: SideCarClient | null = null;
 const showBrowserCommand = 'codestory.show-simple-browser';
 
 export async function activate(context: vscode.ExtensionContext) {
-	const session = await vscode.csAuthentication.getSession();
+	const session = await vscode.csAuthentication.getSession({ hardCheck: false });
 	const email = session?.account.email ?? '';
 
 	// Project root here
@@ -181,7 +181,6 @@ export async function activate(context: vscode.ExtensionContext) {
 		currentRepo,
 		projectContext,
 		sidecarClient,
-		csEventHandler,
 		recentEditsRetriever,
 		context,
 	);

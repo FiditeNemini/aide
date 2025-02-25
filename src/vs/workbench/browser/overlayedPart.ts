@@ -54,7 +54,7 @@ export abstract class OverlayedPart extends Component implements IOverlayedView 
 		protected readonly layoutService: IWorkbenchLayoutService
 	) {
 		super(id, themeService, storageService);
-		this._register(layoutService.registerOverlayedPart(this));
+		//this._register(layoutService.registerOverlayedPart(this));
 	}
 
 	create(parent: HTMLElement, options?: object): void {

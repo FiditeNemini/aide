@@ -64,6 +64,10 @@ export type SubscriptionResponse = {
 	subscriptionEnding?: number;
 };
 
+export type GetSessionOptions = {
+	hardCheck: boolean;
+};
+
 export const statusAllowsAccess = (status: SubscriptionStatus): boolean => {
 	return status === 'free' || status === 'active' || status === 'pending_cancellation';
 };
@@ -80,9 +84,10 @@ export const ICSAuthenticationService = createDecorator<ICSAuthenticationService
 export interface ICSAuthenticationService {
 	readonly _serviceBrand: undefined;
 	readonly onDidAuthenticate: Event<CSAuthenticationSession>;
+	readonly onShouldAuthenticate: Event<void>;
 
 	createSession(): Promise<CSAuthenticationSession>;
 	deleteSession(sessionId: string): Promise<void>;
 	refreshTokens(): Promise<void>;
-	getSession(): Promise<CSAuthenticationSession | undefined>;
+	getSession(options: GetSessionOptions): Promise<CSAuthenticationSession | undefined>;
 }
