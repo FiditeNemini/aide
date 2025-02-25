@@ -28,7 +28,7 @@ export function isResponseVM(item: unknown): item is IChatResponseViewModel {
 	return !!item && typeof (item as IChatResponseViewModel).setVote !== 'undefined';
 }
 
-export type IChatViewModelChangeEvent = IChatAddRequestEvent | IChangePlaceholderEvent | IChatSessionInitEvent | null;
+export type IChatViewModelChangeEvent = IChatAddRequestEvent | IChangePlaceholderEvent | IChatSessionInitEvent | IChatSetHiddenEvent | null;
 
 export interface IChatAddRequestEvent {
 	kind: 'addRequest';
@@ -40,6 +40,10 @@ export interface IChangePlaceholderEvent {
 
 export interface IChatSessionInitEvent {
 	kind: 'initialize';
+}
+
+export interface IChatSetHiddenEvent {
+	kind: 'setHidden';
 }
 
 export interface IChatViewModel {
@@ -69,6 +73,9 @@ export interface IChatRequestViewModel {
 	currentRenderedHeight: number | undefined;
 	readonly contentReferences?: ReadonlyArray<IChatContentReference>;
 	readonly confirmation?: string;
+	readonly shouldBeRemovedOnSend: boolean;
+	readonly isComplete: boolean;
+	readonly isCompleteAddedRequest: boolean;
 }
 
 export interface IChatResponseMarkdownRenderData {
@@ -164,6 +171,7 @@ export interface IChatResponseViewModel {
 	readonly isComplete: boolean;
 	readonly isCanceled: boolean;
 	readonly isStale: boolean;
+	isFirst: boolean;
 	isLast: boolean;
 	readonly vote: ChatAgentVoteDirection | undefined;
 	readonly voteDownReason: ChatAgentVoteDownReason | undefined;
@@ -171,6 +179,8 @@ export interface IChatResponseViewModel {
 	readonly errorDetails?: IChatResponseErrorDetails;
 	readonly result?: IChatAgentResult;
 	readonly contentUpdateTimings?: IChatLiveUpdateData;
+	readonly shouldBeRemovedOnSend: boolean;
+	readonly isCompleteAddedRequest: boolean;
 	renderData?: IChatResponseRenderData;
 	currentRenderedHeight: number | undefined;
 	setVote(vote: ChatAgentVoteDirection): void;
@@ -190,6 +200,19 @@ export class ChatViewModel extends Disposable implements IChatViewModel {
 
 	private _items: (ChatRequestViewModel | ChatResponseViewModel)[] = [];
 
+	private updateFirstResponseState(): void {
+		let lastRequestIndex = -1;
+		for (let i = 0; i < this._items.length; i++) {
+			const item = this._items[i];
+			if (isRequestVM(item)) {
+				lastRequestIndex = i;
+			} else if (isResponseVM(item)) {
+				// A response is "first" if it immediately follows a request
+				item.isFirst = i === lastRequestIndex + 1;
+			}
+		}
+	}
+
 	private removeItem(index: number) {
 		if (index >= 0) {
 			const items = this._items.splice(index, 1);
@@ -197,6 +220,7 @@ export class ChatViewModel extends Disposable implements IChatViewModel {
 			if (item instanceof ChatResponseViewModel) {
 				item.dispose();
 			}
+			this.updateFirstResponseState();
 		}
 	}
 
@@ -210,6 +234,7 @@ export class ChatViewModel extends Disposable implements IChatViewModel {
 			}
 		}
 		this._items.push(item);
+		this.updateFirstResponseState();
 	}
 
 	private _inputPlaceholder: string | undefined = undefined;
@@ -274,19 +299,16 @@ export class ChatViewModel extends Disposable implements IChatViewModel {
 				*/
 			} else if (e.kind === 'addResponse') {
 				this.onAddResponse(e.response);
-			} else if (e.kind === 'removeRequest') {
-				const requestIdx = this._items.findIndex(item => isRequestVM(item) && item.id === e.requestId);
-				this.removeItem(requestIdx);
-
-				const responseIdx = e.responseId && this._items.findIndex(item => isResponseVM(item) && item.id === e.responseId);
-				if (typeof responseIdx === 'number') {
-					this.removeItem(responseIdx);
-				}
+			} else if (e.kind === 'removeExchange') {
+				const exchangeIdx = this._items.findIndex(item => item.id === e.exchangeId);
+				this.removeItem(exchangeIdx);
 			}
 
-			const modelEventToVmEvent: IChatViewModelChangeEvent = e.kind === 'addRequest' ? { kind: 'addRequest' } :
-				e.kind === 'initialize' ? { kind: 'initialize' } :
-					null;
+			const modelEventToVmEvent: IChatViewModelChangeEvent =
+				e.kind === 'addRequest' ? { kind: 'addRequest' }
+					: e.kind === 'initialize' ? { kind: 'initialize' }
+						: e.kind === 'setHidden' ? { kind: 'setHidden' }
+							: null;
 			this._onDidChange.fire(modelEventToVmEvent);
 		}));
 	}
@@ -304,7 +326,7 @@ export class ChatViewModel extends Disposable implements IChatViewModel {
 	}
 
 	getItems(): (IChatRequestViewModel | IChatResponseViewModel)[] {
-		return [...this._items];
+		return this._items.filter((item) => !item.shouldBeRemovedOnSend);
 	}
 
 	override dispose() {
@@ -327,7 +349,7 @@ export class ChatViewModel extends Disposable implements IChatViewModel {
 			if (token.type === 'code') {
 				const lang = token.lang || '';
 				const text = token.text;
-				this.codeBlockModelCollection.update(this._model.sessionId, model, codeBlockIndex++, { text, languageId: lang });
+				this.codeBlockModelCollection.update(this._model.sessionId, model, codeBlockIndex++, { text, languageId: lang, isComplete: true });
 			}
 		});
 	}
@@ -339,7 +361,7 @@ export class ChatRequestViewModel implements IChatRequestViewModel {
 	}
 
 	get dataId() {
-		return this.id + `_${ChatModelInitState[this._model.session.initState]}_${hash(this.variables)}`;
+		return this.id + `_${ChatModelInitState[this._model.session.initState]}_${hash(this.variables)}_${hash(this.isComplete)}`;
 	}
 
 	get sessionId() {
@@ -380,6 +402,18 @@ export class ChatRequestViewModel implements IChatRequestViewModel {
 		return this._model.confirmation;
 	}
 
+	get isComplete() {
+		return false;
+	}
+
+	get isCompleteAddedRequest() {
+		return this._model.isCompleteAddedRequest;
+	}
+
+	get shouldBeRemovedOnSend() {
+		return this._model.shouldBeRemovedOnSend;
+	}
+
 	currentRenderedHeight: number | undefined;
 
 	constructor(
@@ -401,10 +435,29 @@ export class ChatResponseViewModel extends Disposable implements IChatResponseVi
 		return this._model.id;
 	}
 
-	isLast = true;
-
 	get dataId() {
-		return this._model.id + `_${this._modelChangeCount}` + `_${ChatModelInitState[this._model.session.initState]}`;
+		return this._model.id +
+			`_${this._modelChangeCount}` +
+			`_${ChatModelInitState[this._model.session.initState]}` +
+			(this.isLast ? '_last' : '');
+	}
+
+	private _isFirst: boolean = false;
+	get isFirst() {
+		return this._isFirst;
+	}
+
+	set isFirst(_isFirst: boolean) {
+		this._isFirst = _isFirst;
+	}
+
+	private _isLast: boolean = true;
+	get isLast() {
+		return this._isLast;
+	}
+
+	set isLast(_isLast: boolean) {
+		this._isLast = _isLast;
 	}
 
 	get sessionId() {
@@ -466,6 +519,14 @@ export class ChatResponseViewModel extends Disposable implements IChatResponseVi
 
 	get isCanceled() {
 		return this._model.isCanceled;
+	}
+
+	get shouldBeRemovedOnSend() {
+		return this._model.shouldBeRemovedOnSend;
+	}
+
+	get isCompleteAddedRequest() {
+		return this._model.isCompleteAddedRequest;
 	}
 
 	get replyFollowups() {

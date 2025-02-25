@@ -26,7 +26,6 @@ export async function createFileIfNotExists(uri: vscode.Uri): Promise<SidecarCre
 		if (error.code === 'FileNotFound' || error.code === 'ENOENT') {
 			const content = new TextEncoder().encode(''); // Empty content
 			await vscode.workspace.fs.writeFile(uri, content);
-			vscode.window.showInformationMessage('File created successfully.');
 			return {
 				success: true,
 			};

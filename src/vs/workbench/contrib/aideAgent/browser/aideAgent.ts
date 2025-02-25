@@ -38,8 +38,11 @@ export interface IAideAgentWidgetService {
 	 */
 	readonly lastFocusedWidget: IChatWidget | undefined;
 
+	readonly onDidAddWidget: Event<IChatWidget>;
+
 	getWidgetByInputUri(uri: URI): IChatWidget | undefined;
 	getWidgetBySessionId(sessionId: string): IChatWidget | undefined;
+	getWidgetsByLocations(location: ChatAgentLocation): ReadonlyArray<IChatWidget>;
 }
 
 export async function showChatView(viewsService: IViewsService): Promise<IChatWidget | undefined> {
@@ -100,9 +103,10 @@ export interface IChatListItemRendererOptions {
 }
 
 export interface IChatWidgetViewOptions {
+	autoScroll?: boolean;
 	renderInputOnTop?: boolean;
 	renderFollowups?: boolean;
-	renderStyle?: 'default' | 'compact' | 'minimal';
+	renderStyle?: 'compact' | 'minimal';
 	supportsFileReferences?: boolean;
 	filter?: (item: ChatTreeItem) => boolean;
 	rendererOptions?: IChatListItemRendererOptions;

@@ -80,18 +80,18 @@ export async function applyEdits(
 	const range = new vscode.Range(new vscode.Position(startPosition.line, 0), new vscode.Position(endPosition.line, endPosition.character));
 	const fileUri = vscode.Uri.file(filePath);
 
-	const workspaceEdit = new vscode.WorkspaceEdit();
-	workspaceEdit.replace(fileUri, range, replacedText);
+	const edit = vscode.TextEdit.replace(range, replacedText);
 	iterationEdits.replace(fileUri, range, replacedText);
 	if (request.apply_directly) {
 		// apply the edits to it
+		const workspaceEdit = new vscode.WorkspaceEdit();
+		workspaceEdit.set(fileUri, [edit]);
 		await vscode.workspace.applyEdit(workspaceEdit);
 		// we also want to save the file at this point after applying the edit
 		await vscode.workspace.save(fileUri);
 	} else {
-		await response.codeEdit(workspaceEdit);
+		response.textEdit(fileUri, edit);
 	}
-
 
 	// we calculate how many lines we get after replacing the text
 	// once we make the edit on the range, the new range is presented to us
@@ -129,26 +129,26 @@ export async function applyEdits(
  * Overwrites the entire content of a file
  */
 export async function overwriteFile(
-    request: SidecarOverwriteFileRequest,
-): Promise<{fs_file_path: string; success: boolean}> {
-    const filePath = request.fs_file_path;
-    const fileUri = vscode.Uri.file(filePath);
+	request: SidecarOverwriteFileRequest,
+): Promise<{ fs_file_path: string; success: boolean }> {
+	const filePath = request.fs_file_path;
+	const fileUri = vscode.Uri.file(filePath);
 
-    const workspaceEdit = new vscode.WorkspaceEdit();
-    const document = await vscode.workspace.openTextDocument(fileUri);
-    const fullRange = new vscode.Range(
-        new vscode.Position(0, 0),
-        document.lineAt(document.lineCount - 1).range.end
-    );
-    
-    workspaceEdit.replace(fileUri, fullRange, request.updated_content);
-    await vscode.workspace.applyEdit(workspaceEdit);
-    await vscode.workspace.save(fileUri);
+	const workspaceEdit = new vscode.WorkspaceEdit();
+	const document = await vscode.workspace.openTextDocument(fileUri);
+	const fullRange = new vscode.Range(
+		new vscode.Position(0, 0),
+		document.lineAt(document.lineCount - 1).range.end
+	);
 
-    return {
-        fs_file_path: filePath,
-        success: true
-    };
+	workspaceEdit.replace(fileUri, fullRange, request.updated_content);
+	await vscode.workspace.applyEdit(workspaceEdit);
+	await vscode.workspace.save(fileUri);
+
+	return {
+		fs_file_path: filePath,
+		success: true
+	};
 }
 
 export interface ITask<T> {

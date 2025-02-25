@@ -156,6 +156,9 @@ export class MainThreadChatAgents2 extends Disposable implements MainThreadAideA
 			invoke: async (request, token) => {
 				return await this._proxy.$invokeAgent(handle, request, { history: [] }, token) ?? {};
 			},
+			moveToCheckpoint: async (sessionId, exchangeId) => {
+				return await this._proxy.$moveToCheckpoint(handle, sessionId, exchangeId);
+			},
 			provideFollowups: async (request, result, history, token): Promise<IChatFollowup[]> => {
 				if (!this._agents.get(handle)?.hasFollowups) {
 					return [];

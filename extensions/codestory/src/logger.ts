@@ -3,25 +3,18 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 import { window } from 'vscode';
-import { createLogger, format } from 'winston';
-// @ts-ignore
-import VSCTransport from 'winston-vscode';
+import { createLogger } from 'winston';
+import { LogOutputChannelTransport } from 'winston-transport-vscode';
 
-const transport = new VSCTransport({
-	window: window,
-	name: 'CodeStory',
+const outputChannel = window.createOutputChannel('CodeStory', {
+	log: true,
 });
 
 const logger = createLogger({
-	level: 'info',
-	format: format.combine(
-		format.splat(),
-		format.printf(({ message }: { message: string }) => {
-			return message;
-		}),
-		format.errors({ stack: true })
-	),
-	transports: [transport],
+	level: 'trace',
+	levels: LogOutputChannelTransport.config.levels,
+	format: LogOutputChannelTransport.format(),
+	transports: [new LogOutputChannelTransport({ outputChannel })],
 });
 
 export default logger;

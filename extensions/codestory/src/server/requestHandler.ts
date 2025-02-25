@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 import * as http from 'http';
-import { SidecarApplyEditsRequest, LSPDiagnostics, SidecarGoToDefinitionRequest, SidecarGoToImplementationRequest, SidecarGoToReferencesRequest, SidecarOpenFileToolRequest, LSPQuickFixInvocationRequest, SidecarQuickFixRequest, SidecarSymbolSearchRequest, SidecarInlayHintsRequest, SidecarGetOutlineNodesRequest, SidecarOutlineNodesWithContentRequest, EditedCodeStreamingRequest, SidecarRecentEditsRetrieverRequest, SidecarRecentEditsRetrieverResponse, SidecarCreateFileRequest, LSPFileDiagnostics, SidecarGetPreviousWordRangeRequest, SidecarDiagnosticsResponse, SidecarCreateNewExchangeRequest, SidecarUndoPlanStep, SidecarExecuteTerminalCommandRequest, SidecarListFilesEndpoint, SidecarOverwriteFileRequest } from './types';
+import { SidecarApplyEditsRequest, LSPDiagnostics, SidecarGoToDefinitionRequest, SidecarGoToImplementationRequest, SidecarGoToReferencesRequest, SidecarOpenFileToolRequest, LSPQuickFixInvocationRequest, SidecarQuickFixRequest, SidecarSymbolSearchRequest, SidecarInlayHintsRequest, SidecarGetOutlineNodesRequest, SidecarOutlineNodesWithContentRequest, EditedCodeStreamingRequest, SidecarRecentEditsRetrieverRequest, SidecarRecentEditsRetrieverResponse, SidecarCreateFileRequest, LSPFileDiagnostics, SidecarGetPreviousWordRangeRequest, SidecarDiagnosticsResponse, SidecarCreateNewExchangeRequest, SidecarExecuteTerminalCommandRequest, SidecarListFilesEndpoint, SidecarOverwriteFileRequest } from './types';
 import { Position, Range, workspace } from 'vscode';
 import { overwriteFile } from './applyEdits';
 import { getDiagnosticsFromEditor, getEnrichedDiagnostics, getFileDiagnosticsFromEditor, getFullWorkspaceDiagnostics, getHoverInformation } from './diagnostics';
@@ -53,7 +53,6 @@ export function handleRequest(
 		exchange_id: string | undefined;
 	}>,
 	recentEditsRetriever: (request: SidecarRecentEditsRetrieverRequest) => Promise<SidecarRecentEditsRetrieverResponse>,
-	undoToCheckpoint: (request: SidecarUndoPlanStep) => Promise<{ success: boolean }>,
 ) {
 	return async (req: http.IncomingMessage, res: http.ServerResponse) => {
 		try {
@@ -206,12 +205,6 @@ export function handleRequest(
 				const body = await readRequestBody(req);
 				const request: SidecarCreateNewExchangeRequest = JSON.parse(body);
 				const response = await newExchangeId(request.session_id);
-				res.writeHead(200, { 'Content-Type': 'application/json' });
-				res.end(JSON.stringify(response));
-			} else if (req.method === 'POST' && req.url === '/undo_session_changes') {
-				const body = await readRequestBody(req);
-				const request: SidecarUndoPlanStep = JSON.parse(body);
-				const response = await undoToCheckpoint(request);
 				res.writeHead(200, { 'Content-Type': 'application/json' });
 				res.end(JSON.stringify(response));
 			} else if (req.method === 'POST' && req.url === '/rip_grep_path') {

@@ -95,6 +95,7 @@ export function isChatWelcomeMessageContent(obj: any): obj is IChatWelcomeMessag
 export interface IChatAgentImplementation {
 	initSession(sessionId: string): void;
 	invoke(request: IChatAgentRequest, token: CancellationToken): Promise<IChatAgentResult>;
+	moveToCheckpoint(sessionId: string, exchangeId: string): Promise<void>;
 	provideFollowups?(request: IChatAgentRequest, result: IChatAgentResult, history: IChatAgentHistoryEntry[], token: CancellationToken): Promise<IChatFollowup[]>;
 	provideWelcomeMessage?(token: CancellationToken): ProviderResult<IChatWelcomeMessageContent | undefined>;
 	provideChatTitle?: (history: IChatAgentHistoryEntry[], token: CancellationToken) => Promise<string | undefined>;
@@ -436,6 +437,10 @@ export class ChatAgentService implements IAideAgentAgentService {
 		return await data.impl.invoke(request, token);
 	}
 
+	async moveToCheckpoint(id: string, sessionId: string, exchangeId: string): Promise<void> {
+
+	}
+
 	async getFollowups(id: string, request: IChatAgentRequest, result: IChatAgentResult, history: IChatAgentHistoryEntry[], token: CancellationToken): Promise<IChatFollowup[]> {
 		const data = this._agents.get(id);
 		if (!data?.impl) {
@@ -551,6 +556,10 @@ export class MergedChatAgent implements IChatAgent {
 		}
 
 		return [];
+	}
+
+	moveToCheckpoint(sessionId: string, exchangeId: string): Promise<void> {
+		return this.impl.moveToCheckpoint(sessionId, exchangeId);
 	}
 
 	provideWelcomeMessage(token: CancellationToken): ProviderResult<IChatWelcomeMessageContent | undefined> {

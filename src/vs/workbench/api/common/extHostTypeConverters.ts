@@ -3052,36 +3052,15 @@ export namespace AideAgentRequest {
 	}
 }
 
-export namespace ChatResponseCodeEditPart {
-	export function from(part: vscode.ChatResponseCodeEditPart): extHostProtocol.IChatCodeEditDto {
-		return {
-			kind: 'codeEdit',
-			edits: WorkspaceEdit.from(part.edits),
-		};
-	}
-
-	export function to(part: extHostProtocol.IChatCodeEditDto): vscode.ChatResponseCodeEditPart {
-		return new types.ChatResponseCodeEditPart(WorkspaceEdit.to(part.edits));
-	}
-}
-
 export namespace AideAgentResponsePart {
-	export function from(part: ChatResponsePartType | vscode.ChatResponseCodeEditPart, commandsConverter: CommandsConverter, commandDisposables: DisposableStore): extHostProtocol.IAideAgentProgressDto {
-		if (part instanceof types.ChatResponseCodeEditPart) {
-			return ChatResponseCodeEditPart.from(part);
-		} else {
-			const chatResponsePart = part as ChatResponsePartType;
-			return ChatResponsePart.from(chatResponsePart, commandsConverter, commandDisposables);
-		}
+	export function from(part: ChatResponsePartType, commandsConverter: CommandsConverter, commandDisposables: DisposableStore): extHostProtocol.IAideAgentProgressDto {
+		const chatResponsePart = part as ChatResponsePartType;
+		return ChatResponsePart.from(chatResponsePart, commandsConverter, commandDisposables);
 	}
 
 	export function to(part: extHostProtocol.IAideAgentProgressDto, commandsConverter: CommandsConverter): vscode.AideAgentResponsePart | undefined {
-		if (part.kind === 'codeEdit') {
-			return ChatResponseCodeEditPart.to(part);
-		} else {
-			const chatResponsePart = part as extHostProtocol.IChatProgressDto;
-			return ChatResponsePart.to(chatResponsePart, commandsConverter);
-		}
+		const chatResponsePart = part as extHostProtocol.IChatProgressDto;
+		return ChatResponsePart.to(chatResponsePart, commandsConverter);
 	}
 
 	export function toContent(part: extHostProtocol.IAideAgentContentProgressDto, commandsConverter: CommandsConverter): vscode.ChatResponseMarkdownPart | vscode.ChatResponseFileTreePart | vscode.ChatResponseAnchorPart | vscode.ChatResponseCommandButtonPart | undefined {

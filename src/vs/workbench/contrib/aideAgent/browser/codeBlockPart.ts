@@ -11,13 +11,12 @@ import { Button } from '../../../../base/browser/ui/button/button.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
-import { combinedDisposable, Disposable, DisposableStore, MutableDisposable } from '../../../../base/common/lifecycle.js';
+import { combinedDisposable, Disposable, MutableDisposable } from '../../../../base/common/lifecycle.js';
 import { Schemas } from '../../../../base/common/network.js';
 import { isEqual } from '../../../../base/common/resources.js';
 import { assertType } from '../../../../base/common/types.js';
 import { URI, UriComponents } from '../../../../base/common/uri.js';
 import { IEditorConstructionOptions } from '../../../../editor/browser/config/editorConfiguration.js';
-import { TabFocus } from '../../../../editor/browser/config/tabFocus.js';
 import { IDiffEditor } from '../../../../editor/browser/editorBrowser.js';
 import { EditorExtensionsRegistry } from '../../../../editor/browser/editorExtensions.js';
 import { ICodeEditorService } from '../../../../editor/browser/services/codeEditorService.js';
@@ -31,7 +30,7 @@ import { EndOfLinePreference, ITextModel } from '../../../../editor/common/model
 import { TextModelText } from '../../../../editor/common/model/textModelText.js';
 import { IModelService } from '../../../../editor/common/services/model.js';
 import { DefaultModelSHA1Computer } from '../../../../editor/common/services/modelService.js';
-import { IResolvedTextEditorModel, ITextModelContentProvider, ITextModelService } from '../../../../editor/common/services/resolverService.js';
+import { ITextModelContentProvider, ITextModelService } from '../../../../editor/common/services/resolverService.js';
 import { BracketMatchingController } from '../../../../editor/contrib/bracketMatching/browser/bracketMatching.js';
 import { ColorDetector } from '../../../../editor/contrib/colorPicker/browser/colorDetector.js';
 import { ContextMenuController } from '../../../../editor/contrib/contextmenu/browser/contextmenu.js';
@@ -55,6 +54,7 @@ import { IInstantiationService } from '../../../../platform/instantiation/common
 import { ServiceCollection } from '../../../../platform/instantiation/common/serviceCollection.js';
 import { ILabelService } from '../../../../platform/label/common/label.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
+import { emptyProgressRunner, IEditorProgressService } from '../../../../platform/progress/common/progress.js';
 import { ResourceLabel } from '../../../browser/labels.js';
 import { ResourceContextKey } from '../../../common/contextkeys.js';
 import { AccessibilityVerbositySettingId } from '../../accessibility/browser/accessibilityConfiguration.js';
@@ -62,10 +62,10 @@ import { InspectEditorTokensController } from '../../codeEditor/browser/inspectE
 import { MenuPreventer } from '../../codeEditor/browser/menuPreventer.js';
 import { SelectionClipboardContributionID } from '../../codeEditor/browser/selectionClipboard.js';
 import { getSimpleEditorOptions } from '../../codeEditor/browser/simpleEditorOptions.js';
-import { IMarkdownVulnerability } from '../common/annotations.js';
 import { CONTEXT_CHAT_EDIT_APPLIED } from '../common/aideAgentContextKeys.js';
 import { IChatResponseModel, IChatTextEditGroup } from '../common/aideAgentModel.js';
 import { IChatResponseViewModel, isResponseVM } from '../common/aideAgentViewModel.js';
+import { IMarkdownVulnerability } from '../common/annotations.js';
 import { ChatTreeItem } from './aideAgent.js';
 import { IChatRendererDelegate } from './aideAgentListRenderer.js';
 import { ChatEditorOptions } from './aideAgentOptions.js';
@@ -74,9 +74,10 @@ const $ = dom.$;
 
 export interface ICodeBlockData {
 	readonly codeBlockIndex: number;
+	readonly codeBlockPartIndex: number;
 	readonly element: unknown;
 
-	readonly textModel: Promise<IResolvedTextEditorModel>;
+	readonly textModel: Promise<ITextModel>;
 	readonly languageId: string;
 
 	readonly codemapperUri?: URI;
@@ -151,7 +152,6 @@ export class CodeBlockPart extends Disposable {
 	private currentCodeBlockData: ICodeBlockData | undefined;
 	private currentScrollWidth = 0;
 
-	private readonly disposableStore = this._register(new DisposableStore());
 	private isDisposed = false;
 
 	private resourceContextKey: ResourceContextKey;
@@ -364,7 +364,7 @@ export class CodeBlockPart extends Disposable {
 		return this.editor.getContentHeight();
 	}
 
-	async render(data: ICodeBlockData, width: number, editable: boolean | undefined) {
+	async render(data: ICodeBlockData, width: number) {
 		this.currentCodeBlockData = data;
 		if (data.parentContextKeyService) {
 			this.contextKeyService.updateParent(data.parentContextKeyService);
@@ -382,12 +382,7 @@ export class CodeBlockPart extends Disposable {
 		}
 
 		this.layout(width);
-		if (editable) {
-			this.disposableStore.clear();
-			this.disposableStore.add(this.editor.onDidFocusEditorWidget(() => TabFocus.setTabFocusMode(true)));
-			this.disposableStore.add(this.editor.onDidBlurEditorWidget(() => TabFocus.setTabFocusMode(false)));
-		}
-		this.editor.updateOptions({ ariaLabel: localize('chat.codeBlockLabel', "Code block {0}", data.codeBlockIndex + 1), readOnly: !editable });
+		this.editor.updateOptions({ ariaLabel: localize('chat.codeBlockLabel', "Code block {0}", data.codeBlockIndex + 1) });
 
 		if (data.hideToolbar) {
 			dom.hide(this.toolbar.getElement());
@@ -416,7 +411,7 @@ export class CodeBlockPart extends Disposable {
 	}
 
 	private async updateEditor(data: ICodeBlockData): Promise<void> {
-		const textModel = (await data.textModel).textEditorModel;
+		const textModel = await data.textModel;
 		this.editor.setModel(textModel);
 		if (data.range) {
 			this.editor.setSelection(data.range);
@@ -528,7 +523,18 @@ export class CodeCompareBlockPart extends Disposable {
 		this.messageElement.tabIndex = 0;
 
 		this.contextKeyService = this._register(contextKeyService.createScoped(this.element));
-		const scopedInstantiationService = this._register(instantiationService.createChild(new ServiceCollection([IContextKeyService, this.contextKeyService])));
+		const scopedInstantiationService = this._register(instantiationService.createChild(new ServiceCollection(
+			[IContextKeyService, this.contextKeyService],
+			[IEditorProgressService, new class implements IEditorProgressService {
+				_serviceBrand: undefined;
+				show(_total: unknown, _delay?: unknown) {
+					return emptyProgressRunner;
+				}
+				async showWhile(promise: Promise<unknown>, _delay?: number): Promise<void> {
+					await promise;
+				}
+			}],
+		)));
 		const editorHeader = dom.append(this.element, $('.interactive-result-header.show-file-icons'));
 		const editorElement = dom.append(this.element, $('.interactive-result-editor'));
 		this.diffEditor = this.createDiffEditor(scopedInstantiationService, editorElement, {
@@ -692,20 +698,20 @@ export class CodeCompareBlockPart extends Disposable {
 	}
 
 	layout(width: number): void {
-		const contentHeight = this.getContentHeight();
 		const editorBorder = 2;
-		const dimension = { width: width - editorBorder, height: contentHeight };
+
+		const toolbar = dom.getTotalHeight(this.toolbar.getElement());
+		const content = this.diffEditor.getModel()
+			? this.diffEditor.getContentHeight()
+			: dom.getTotalHeight(this.messageElement);
+
+		const dimension = new dom.Dimension(width - editorBorder, toolbar + content);
 		this.element.style.height = `${dimension.height}px`;
 		this.element.style.width = `${dimension.width}px`;
-		this.diffEditor.layout(dimension);
+		this.diffEditor.layout(dimension.with(undefined, content - editorBorder));
 		this.updatePaddingForLayout();
 	}
 
-	private getContentHeight() {
-		return this.diffEditor.getModel()
-			? this.diffEditor.getContentHeight()
-			: dom.getTotalHeight(this.messageElement);
-	}
 
 	async render(data: ICodeCompareBlockData, width: number, token: CancellationToken) {
 		if (data.parentContextKeyService) {

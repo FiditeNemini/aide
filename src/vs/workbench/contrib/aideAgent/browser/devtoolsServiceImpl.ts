@@ -311,7 +311,8 @@ export class DevtoolsService extends Disposable implements IDevtoolsService {
 						startColumn: replaceRange.startColumn + (isLeading ? 0 : 1),
 						endColumn: replaceRange.endColumn + displayName.length + (isLeading ? 0 : 1),
 					},
-					data: { uri: payload.location.uri, range: payload.location.range }
+					data: { uri: payload.location.uri, range: payload.location.range },
+					isFile: true,
 				};
 				dynamicVariablesModel.addReference(variable);
 				input.focus();

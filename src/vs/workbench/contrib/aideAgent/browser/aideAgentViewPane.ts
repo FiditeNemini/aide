@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { $, getWindow } from '../../../../base/browser/dom.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { MarshalledId } from '../../../../base/common/marshallingIds.js';
@@ -14,6 +15,7 @@ import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ServiceCollection } from '../../../../platform/instantiation/common/serviceCollection.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
+import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
@@ -68,7 +70,8 @@ export class ChatViewPane extends ViewPane {
 		@IAideAgentService private readonly chatService: IAideAgentService,
 		@IAideAgentAgentService private readonly chatAgentService: IAideAgentAgentService,
 		@ILogService private readonly logService: ILogService,
-		@IDevtoolsService devoolsService: IDevtoolsService
+		@IDevtoolsService devoolsService: IDevtoolsService,
+		@ILayoutService private readonly layoutService: ILayoutService,
 	) {
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, telemetryService, hoverService);
 		// Temporary performance fix @g-danna
@@ -167,11 +170,21 @@ export class ChatViewPane extends ViewPane {
 
 			const scopedInstantiationService = this._register(this.instantiationService.createChild(new ServiceCollection([IContextKeyService, this.scopedContextKeyService])));
 			const locationBasedColors = this.getLocationBasedColors();
+			const editorOverflowNode = this.layoutService.getContainer(getWindow(parent)).appendChild($('.chat-editor-overflow.monaco-editor'));
+			this._register({ dispose: () => editorOverflowNode.remove() });
+
 			this._widget = this._register(scopedInstantiationService.createInstance(
 				ChatWidget,
 				ChatAgentLocation.Panel,
 				{ viewId: this.id },
-				{ supportsFileReferences: true },
+				{
+					autoScroll: true,
+					supportsFileReferences: true,
+					editorOverflowWidgetsDomNode: editorOverflowNode,
+					rendererOptions: {
+						renderTextEditsAsSummary: () => true,
+					}
+				},
 				{
 					listForeground: SIDE_BAR_FOREGROUND,
 					listBackground: locationBasedColors.background,

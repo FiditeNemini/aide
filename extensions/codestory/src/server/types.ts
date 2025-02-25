@@ -1180,8 +1180,8 @@ export type SidecarRecentEditsRetrieverRequest = {
 };
 
 export type SidecarOverwriteFileRequest = {
-    fs_file_path: string;
-    updated_content: string;
+	fs_file_path: string;
+	updated_content: string;
 };
 
 export type SidecarApplyEditsRequest = {

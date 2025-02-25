@@ -26,7 +26,7 @@ import { IExtensionService } from '../../../services/extensions/common/extension
 import { IRageShakeService } from '../../../services/rageShake/common/rageShake.js';
 import { ChatAgentLocation, IAideAgentAgentService, IChatAgent, IChatAgentCommand, IChatAgentData, IChatAgentRequest, IChatAgentResult } from './aideAgentAgents.js';
 import { CONTEXT_VOTE_UP_ENABLED } from './aideAgentContextKeys.js';
-import { AgentScope, ChatModel, ChatRequestModel, ChatResponseModel, IChatModel, IChatRequestVariableData, IChatResponseModel, IExportableChatData, ISerializableChatData, ISerializableChatDataIn, ISerializableChatsData, updateRanges } from './aideAgentModel.js';
+import { AgentScope, ChatModel, ChatRequestModel, ChatResponseModel, IChatModel, IChatRequestVariableData, IChatResponseModel, IExportableChatData, ISerializableChatData, ISerializableChatDataIn, ISerializableChatsData, isResponseModel, updateRanges } from './aideAgentModel.js';
 import { ChatRequestAgentPart, ChatRequestAgentSubcommandPart, ChatRequestSlashCommandPart, IParsedChatRequest, chatAgentLeader, chatSubcommandLeader, getPromptText } from './aideAgentParserTypes.js';
 import { ChatRequestParser } from './aideAgentRequestParser.js';
 import { IAideAgentService, IChatCompleteResponse, IChatDetail, IChatFollowup, IChatProgress, IChatSendRequestData, IChatSendRequestOptions, IChatSendRequestResponseState, IChatTransferredSessionData, IChatUserActionEvent } from './aideAgentService.js';
@@ -72,11 +72,6 @@ export class ChatService extends Disposable implements IAideAgentService {
 	// TODO(@ghostwriternr): Does this continue to make sense? How do we interpret 'pending requests' when we're no longer using a request-response model?
 	private readonly _pendingExchanges = this._register(new DisposableMap<string, CancellableExchange>());
 	private _persistedSessions: ISerializableChatsData;
-
-	private _lastExchangeId: string | undefined;
-	get lastExchangeId(): string | undefined {
-		return this._lastExchangeId;
-	}
 
 	/** Just for empty windows, need to enforce that a chat was deleted, even though other windows still have it */
 	private _deletedChatIds = new Set<string>();
@@ -504,6 +499,14 @@ export class ChatService extends Disposable implements IAideAgentService {
 		}
 		*/
 
+		const exchanges = model.getExchanges();
+		for (let i = exchanges.length - 1; i >= 0; i -= 1) {
+			const exchange = exchanges[i];
+			if (exchange.shouldBeRemovedOnSend) {
+				this.removeExchange(sessionId, exchange.id);
+			}
+		}
+
 		const location = options?.location ?? model.initialLocation;
 		const attempt = options?.attempt ?? 0;
 		const defaultAgent = this.chatAgentService.getDefaultAgent(location)!;
@@ -588,7 +591,6 @@ export class ChatService extends Disposable implements IAideAgentService {
 					const prepareChatAgentRequest = async (agent: IChatAgentData, command?: IChatAgentCommand, enableCommandDetection?: boolean, chatRequest?: ChatRequestModel, isParticipantDetected?: boolean): Promise<IChatAgentRequest> => {
 						const initVariableData: IChatRequestVariableData = { variables: [] };
 						request = chatRequest ?? model.addRequest(parsedRequest, initVariableData, attempt, agent, command, options?.confirmation, options?.locationData, options?.attachedContext);
-						this._lastExchangeId = request.id;
 
 						// Variables may have changed if the agent and slash command changed, so resolve them again even if we already had a chatRequest
 						const variableData = await this.chatVariablesService.resolveVariables(
@@ -732,8 +734,7 @@ export class ChatService extends Disposable implements IAideAgentService {
 		};
 	}
 
-	/* TODO(@ghostwriternr): Remove this if we no longer need to remove requests.
-	async removeRequest(sessionId: string, requestId: string): Promise<void> {
+	async disableExchange(sessionId: string, exchangeId: string): Promise<void> {
 		const model = this._sessionModels.get(sessionId);
 		if (!model) {
 			throw new Error(`Unknown session: ${sessionId}`);
@@ -741,15 +742,50 @@ export class ChatService extends Disposable implements IAideAgentService {
 
 		await model.waitForInitialization();
 
-		const pendingRequest = this._pendingRequests.get(sessionId);
-		if (pendingRequest?.requestId === requestId) {
+		const pendingRequest = this._pendingExchanges.get(sessionId);
+		if (pendingRequest?.exchangeId === exchangeId) {
 			pendingRequest.cancel();
-			this._pendingRequests.deleteAndDispose(sessionId);
+			this._pendingExchanges.deleteAndDispose(sessionId);
 		}
 
-		model.removeRequest(requestId);
+		model.disableExchange(exchangeId);
 	}
-	*/
+
+	async enableExchange(sessionId: string, exchangeId: string): Promise<void> {
+		const model = this._sessionModels.get(sessionId);
+		if (!model) {
+			throw new Error(`Unknown session: ${sessionId}`);
+		}
+
+		await model.waitForInitialization();
+		model.enableExchange(exchangeId);
+	}
+
+	async moveToExchange(sessionId: string, exchangeId: string): Promise<void> {
+		const defaultAgent = this.chatAgentService.getDefaultAgent(ChatAgentLocation.Panel);
+		if (!defaultAgent) {
+			return;
+		}
+
+		await defaultAgent.moveToCheckpoint(sessionId, exchangeId);
+	}
+
+	private async removeExchange(sessionId: string, exchangeId: string): Promise<void> {
+		const model = this._sessionModels.get(sessionId);
+		if (!model) {
+			throw new Error(`Unknown session: ${sessionId}`);
+		}
+
+		await model.waitForInitialization();
+
+		const pendingRequest = this._pendingExchanges.get(sessionId);
+		if (pendingRequest?.exchangeId === exchangeId) {
+			pendingRequest.cancel();
+			this._pendingExchanges.deleteAndDispose(sessionId);
+		}
+
+		model.removeExchange(exchangeId);
+	}
 
 	async initiateResponse(sessionId: string): Promise<{ responseId: string; callback: (p: IChatProgress) => void; token: CancellationToken }> {
 		const model = this._sessionModels.get(sessionId);
@@ -759,8 +795,19 @@ export class ChatService extends Disposable implements IAideAgentService {
 
 		await model.waitForInitialization();
 
+		// Check if the previous exchange was a response, and if it had any response parts.
+		// Sometimes, we end up creating empty exchanges from the sidecar. So if we detect this,
+		// just get rid of that unused exchange.
+		const exchanges = model.getExchanges();
+		const lastExchange = exchanges[exchanges.length - 1];
+		if (lastExchange &&
+			isResponseModel(lastExchange) &&
+			lastExchange.response.value.length === 0) {
+			// Remove the empty exchange before proceeding
+			this.removeExchange(sessionId, lastExchange.id);
+		}
+
 		const response = model.addResponse();
-		this._lastExchangeId = response.id;
 		const cts = new CancellationTokenSource();
 		this._pendingExchanges.set(response.id, new CancellableExchange(cts));
 		this._register(cts.token.onCancellationRequested(() => {
@@ -817,6 +864,12 @@ export class ChatService extends Disposable implements IAideAgentService {
 		for (const [exchangeId] of this._pendingExchanges) {
 			this.cancelExchange(exchangeId);
 		}
+	}
+
+	cancelCurrentRequestForSession(sessionId: string): void {
+		this.trace('cancelCurrentRequestForSession', `sessionId: ${sessionId}`);
+		this._pendingExchanges.get(sessionId)?.cancel();
+		this._pendingExchanges.deleteAndDispose(sessionId);
 	}
 
 	clearSession(sessionId: string): void {

@@ -11,7 +11,7 @@ import { ThemeIcon } from '../../../../base/common/themables.js';
 import { URI } from '../../../../base/common/uri.js';
 import { IRange, Range } from '../../../../editor/common/core/range.js';
 import { ISelection } from '../../../../editor/common/core/selection.js';
-import { Command, Location, TextEdit, WorkspaceEdit } from '../../../../editor/common/languages.js';
+import { Command, Location, TextEdit } from '../../../../editor/common/languages.js';
 import { AgentMode } from '../../../../platform/aideAgent/common/model.js';
 import { FileType } from '../../../../platform/files/common/files.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
@@ -183,11 +183,7 @@ export interface IChatTextEdit {
 	uri: URI;
 	edits: TextEdit[];
 	kind: 'textEdit';
-}
-
-export interface IChatCodeEdit {
-	edits: WorkspaceEdit;
-	kind: 'codeEdit';
+	done?: boolean;
 }
 
 export interface IChatConfirmation {
@@ -236,7 +232,6 @@ export type IChatProgress =
 	| IChatCommandButton
 	| IChatWarningMessage
 	| IChatTextEdit
-	| IChatCodeEdit
 	| IChatMoveMessage
 	| IChatResponseCodeblockUriPart
 	| IChatConfirmation
@@ -334,7 +329,14 @@ export interface IChatInlineChatCodeAction {
 	action: 'accepted' | 'discarded';
 }
 
-export type ChatUserAction = IChatVoteAction | IChatCopyAction | IChatInsertAction | IChatApplyAction | IChatTerminalAction | IChatCommandAction | IChatFollowupAction | IChatBugReportAction | IChatInlineChatCodeAction;
+export interface IChatEditingSessionAction {
+	kind: 'chatEditingSessionAction';
+	uri: URI;
+	hasRemainingEdits: boolean;
+	outcome: 'accepted' | 'rejected' | 'saved';
+}
+
+export type ChatUserAction = IChatVoteAction | IChatCopyAction | IChatInsertAction | IChatApplyAction | IChatTerminalAction | IChatCommandAction | IChatFollowupAction | IChatBugReportAction | IChatInlineChatCodeAction | IChatEditingSessionAction;
 
 export interface IChatUserActionEvent {
 	action: ChatUserAction;
@@ -450,15 +452,15 @@ export interface IAideAgentService {
 	sendRequest(sessionId: string, message: string, options?: IChatSendRequestOptions): Promise<IChatSendRequestData | undefined>;
 	// TODO(@ghostwriternr): This method already seems unused. Remove it?
 	// resendRequest(request: IChatRequestModel, options?: IChatSendRequestOptions): Promise<void>;
-	// TODO(@ghostwriternr): Remove this if we no longer need to remove requests.
-	// removeRequest(sessionid: string, requestId: string): Promise<void>;
 
 	cancelExchange(exchangeId: string): void;
 	cancelAllExchangesForSession(): void;
 
-	readonly lastExchangeId: string | undefined;
 	initiateResponse(sessionId: string): Promise<{ responseId: string; callback: (p: IChatProgress) => void; token: CancellationToken }>;
-
+	disableExchange(sessionId: string, exchangeId: string): Promise<void>;
+	enableExchange(sessionId: string, exchangeId: string): Promise<void>;
+	moveToExchange(sessionId: string, exchangeId: string): Promise<void>;
+	cancelCurrentRequestForSession(sessionId: string): void;
 	clearSession(sessionId: string): void;
 	addCompleteRequest(sessionId: string, message: IParsedChatRequest | string, variableData: IChatRequestVariableData | undefined, attempt: number | undefined, response: IChatCompleteResponse): void;
 	getHistory(): IChatDetail[];

@@ -54,7 +54,7 @@ import { SaveReason } from '../../common/editor.js';
 import { IRevealOptions, ITreeItem, IViewBadge } from '../../common/views.js';
 import { ChatAgentLocation as AideAgentLocation } from '../../contrib/aideAgent/common/aideAgentAgents.js';
 import { IChatProgressResponseContent as IAideAgentProgressResponseContent } from '../../contrib/aideAgent/common/aideAgentModel.js';
-import { IAideAgentPlanStep, IAideAgentProgressStage, IChatCodeEdit, IChatEndResponse, IAideAgentToolTypeError } from '../../contrib/aideAgent/common/aideAgentService.js';
+import { IAideAgentPlanStep, IAideAgentProgressStage, IChatEndResponse, IAideAgentToolTypeError } from '../../contrib/aideAgent/common/aideAgentService.js';
 import { DevtoolsStatus, InspectionResult } from '../../contrib/aideAgent/common/devtoolsService.js';
 import { SidecarDownloadStatus, SidecarRunningStatus } from '../../contrib/aideAgent/common/sidecarService.js';
 import { CallHierarchyItem } from '../../contrib/callHierarchy/common/callHierarchy.js';
@@ -1458,14 +1458,12 @@ export interface ExtHostAideAgentAgentsShape {
 	$detectChatParticipant(handle: number, request: Dto<IChatAgentRequest>, context: { history: IAideAgentAgentHistoryEntryDto[] }, options: { participants: IChatParticipantMetadata[]; location: AideAgentLocation }, token: CancellationToken): Promise<IChatParticipantDetectionResult | null | undefined>;
 	$provideSampleQuestions(handle: number, location: AideAgentLocation, token: CancellationToken): Promise<IChatFollowup[] | undefined>;
 	$initSession(handle: number, sessionId: string): void;
+	$moveToCheckpoint(handle: number, sessionId: string, exchangeId: string): Promise<void>;
 	$releaseSession(sessionId: string): void;
 }
 
-export type IChatCodeEditDto = Pick<IChatCodeEdit, 'kind'> & { edits: IWorkspaceEditDto };
-
 export type IAideAgentProgressDto =
 	| IChatProgressDto
-	| IChatCodeEditDto
 	| Dto<IAideAgentPlanStep | IAideAgentProgressStage | IAideAgentToolTypeError | IChatEndResponse>;
 
 export type IAideAgentContentProgressDto =

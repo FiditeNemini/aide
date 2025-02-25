@@ -8,11 +8,18 @@ import { createDecorator } from '../../../../platform/instantiation/common/insta
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { Memento } from '../../../common/memento.js';
 import { ChatAgentLocation } from './aideAgentAgents.js';
+import { IChatRequestVariableEntry } from './aideAgentModel.js';
 import { CHAT_PROVIDER_ID } from './aideAgentParticipantContribTypes.js';
 
 export interface IChatHistoryEntry {
 	text: string;
 	state?: any;
+}
+
+/** The collected input state of ChatWidget contribs + attachments */
+export interface IChatInputState {
+	[key: string]: any;
+	chatContextAttachments?: ReadonlyArray<IChatRequestVariableEntry>;
 }
 
 export const IAideAgentWidgetHistoryService = createDecorator<IAideAgentWidgetHistoryService>('IAideAgentWidgetHistoryService');

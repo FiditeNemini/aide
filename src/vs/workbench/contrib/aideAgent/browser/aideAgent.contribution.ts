@@ -7,6 +7,7 @@ import { MarkdownString, isMarkdownString } from '../../../../base/common/htmlCo
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { Schemas } from '../../../../base/common/network.js';
 import { isMacintosh } from '../../../../base/common/platform.js';
+import { EditorContributionInstantiation, registerEditorContribution } from '../../../../editor/browser/editorExtensions.js';
 import { registerEditorFeature } from '../../../../editor/common/editorFeatures.js';
 import * as nls from '../../../../nls.js';
 import { AccessibleViewRegistry } from '../../../../platform/accessibility/browser/accessibleViewRegistry.js';
@@ -22,15 +23,17 @@ import { EditorExtensions, IEditorFactoryRegistry } from '../../../common/editor
 import { IEditorResolverService, RegisteredEditorPriority } from '../../../services/editor/common/editorResolverService.js';
 import { LifecyclePhase } from '../../../services/lifecycle/common/lifecycle.js';
 import { ChatAgentLocation, ChatAgentNameService, ChatAgentService, IAideAgentAgentNameService, IAideAgentAgentService } from '../common/aideAgentAgents.js';
-import { IAideAgentCodeEditingService } from '../common/aideAgentCodeEditingService.js';
 import { CodeMapperService, IAideAgentCodeMapperService } from '../common/aideAgentCodeMapperService.js';
 import '../common/aideAgentColors.js';
+import { IAideAgentEditingService } from '../common/aideAgentEditingService.js';
 import { chatVariableLeader } from '../common/aideAgentParserTypes.js';
 import { IAideAgentService } from '../common/aideAgentService.js';
 import { ChatService } from '../common/aideAgentServiceImpl.js';
 import { ChatSlashCommandService, IAideAgentSlashCommandService } from '../common/aideAgentSlashCommands.js';
+import { IAideAgentTerminalService } from '../common/aideAgentTerminalService.js';
 import { IAideAgentVariablesService } from '../common/aideAgentVariables.js';
 import { ChatWidgetHistoryService, IAideAgentWidgetHistoryService } from '../common/aideAgentWidgetHistoryService.js';
+import { IDevtoolsService } from '../common/devtoolsService.js';
 import { IAideAgentLMService, LanguageModelsService } from '../common/languageModels.js';
 import { IAideAgentLMStatsService, LanguageModelStatsService } from '../common/languageModelStats.js';
 import { IAideAgentLMToolsService, LanguageModelToolsService } from '../common/languageModelToolsService.js';
@@ -40,7 +43,6 @@ import { PanelChatAccessibilityHelp } from './actions/aideAgentAccessibilityHelp
 import { registerChatActions } from './actions/aideAgentActions.js';
 import { ACTION_ID_NEW_CHAT, registerNewChatActions } from './actions/aideAgentClearActions.js';
 import { registerChatCodeBlockActions, registerChatCodeCompareBlockActions } from './actions/aideAgentCodeblockActions.js';
-import { registerCodeEditActions } from './actions/aideAgentCodeEditActions.js';
 import { registerChatContextActions } from './actions/aideAgentContextActions.js';
 import { registerChatCopyActions } from './actions/aideAgentCopyActions.js';
 import { registerChatDeveloperActions } from './actions/aideAgentDeveloperActions.js';
@@ -48,27 +50,28 @@ import { ExecuteChatAction, registerChatExecuteActions } from './actions/aideAge
 import { registerChatFileTreeActions } from './actions/aideAgentFileTreeActions.js';
 import { registerAideAgentFloatingWidgetActions } from './actions/aideAgentFloatingWidgetActions.js';
 import { ChatGettingStartedContribution } from './actions/aideAgentGettingStarted.js';
-import { registerChatTitleActions } from './actions/aideAgentTitleActions.js';
+import { registerDevtoolsActions } from './actions/devtoolsActions.js';
 import { IAideAgentAccessibilityService, IAideAgentCodeBlockContextProviderService, IAideAgentWidgetService } from './aideAgent.js';
 import { AideAgentAccessibilityService } from './aideAgentAccessibilityService.js';
-import { AideAgentCodeEditingService } from './aideAgentCodeEditingService.js';
+import { ChatInputBoxContentProvider } from './aideAgentEdinputInputContentProvider.js';
+import { ChatEditingService } from './aideAgentEditing/aideAgentEditingService.js';
 import { ChatEditor, IChatEditorOptions } from './aideAgentEditor.js';
+import { registerChatEditorActions } from './aideAgentEditorActions.js';
+import { ChatEditorController } from './aideAgentEditorController.js';
 import { ChatEditorInput, ChatEditorInputSerializer } from './aideAgentEditorInput.js';
+import { ChatEditorOverlayController } from './aideAgentEditorOverlay.js';
 import { AideAgentFloatingWidgetService, IAideAgentFloatingWidgetService } from './aideAgentFloatingWidgetService.js';
 import { agentSlashCommandToMarkdown, agentToMarkdown } from './aideAgentMarkdownDecorationsRenderer.js';
 import { ChatCompatibilityNotifier, ChatExtensionPointHandler } from './aideAgentParticipantContributions.js';
 import { ChatPasteProvidersFeature } from './aideAgentPasteProviders.js';
 import { ChatResponseAccessibleView } from './aideAgentResponseAccessibleView.js';
+import { AideAgentTerminalService } from './aideAgentTerminalServiceImpl.js';
 import { ChatVariablesService } from './aideAgentVariables.js';
 import { ChatWidgetService } from './aideAgentWidget.js';
 import { AideAgentCodeBlockContextProviderService } from './codeBlockContextProviderService.js';
 import './contrib/aideAgentInputCompletions.js';
 import './contrib/aideAgentInputEditorContrib.js';
-import { IDevtoolsService } from '../common/devtoolsService.js';
 import { DevtoolsService } from './devtoolsServiceImpl.js';
-import { IAideAgentTerminalService } from '../common/aideAgentTerminalService.js';
-import { AideAgentTerminalService } from './aideAgentTerminalServiceImpl.js';
-import { registerDevtoolsActions } from './actions/devtoolsActions.js';
 
 // Register configuration
 const configurationRegistry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration);
@@ -175,6 +178,8 @@ class ChatResolverContribution extends Disposable {
 AccessibleViewRegistry.register(new ChatResponseAccessibleView());
 AccessibleViewRegistry.register(new PanelChatAccessibilityHelp());
 
+registerEditorFeature(ChatInputBoxContentProvider);
+
 class ChatSlashStaticSlashCommandsContribution extends Disposable {
 
 	constructor(
@@ -277,17 +282,18 @@ registerChatCopyActions();
 registerChatCodeBlockActions();
 registerChatCodeCompareBlockActions();
 registerChatFileTreeActions();
-registerChatTitleActions();
 registerChatExecuteActions();
 registerNewChatActions();
 registerChatContextActions();
 registerChatDeveloperActions();
 registerAideAgentFloatingWidgetActions();
-registerCodeEditActions();
+registerChatEditorActions();
 
 registerDevtoolsActions();
 
 registerEditorFeature(ChatPasteProvidersFeature);
+registerEditorContribution(ChatEditorOverlayController.ID, ChatEditorOverlayController, EditorContributionInstantiation.Lazy);
+registerEditorContribution(ChatEditorController.ID, ChatEditorController, EditorContributionInstantiation.Eventually);
 
 registerSingleton(IAideAgentService, ChatService, InstantiationType.Delayed);
 registerSingleton(IAideAgentWidgetService, ChatWidgetService, InstantiationType.Delayed);
@@ -302,8 +308,8 @@ registerSingleton(IAideAgentVariablesService, ChatVariablesService, Instantiatio
 registerSingleton(IAideAgentLMToolsService, LanguageModelToolsService, InstantiationType.Delayed);
 registerSingleton(IAideAgentCodeBlockContextProviderService, AideAgentCodeBlockContextProviderService, InstantiationType.Delayed);
 registerSingleton(IAideAgentCodeMapperService, CodeMapperService, InstantiationType.Delayed);
+registerSingleton(IAideAgentEditingService, ChatEditingService, InstantiationType.Delayed);
 registerSingleton(IAideAgentFloatingWidgetService, AideAgentFloatingWidgetService, InstantiationType.Delayed);
-registerSingleton(IAideAgentCodeEditingService, AideAgentCodeEditingService, InstantiationType.Delayed);
 registerSingleton(ISidecarService, SidecarService, InstantiationType.Delayed);
 registerSingleton(IDevtoolsService, DevtoolsService, InstantiationType.Delayed);
 registerSingleton(IAideAgentTerminalService, AideAgentTerminalService, InstantiationType.Delayed);

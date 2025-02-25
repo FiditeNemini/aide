@@ -14,6 +14,8 @@ export const CONTEXT_CHAT_RESPONSE_SUPPORT_ISSUE_REPORTING = new RawContextKey<b
 export const CONTEXT_RESPONSE_FILTERED = new RawContextKey<boolean>('aideAgentSessionResponseFiltered', false, { type: 'boolean', description: localize('chatResponseFiltered', "True when the chat response was filtered out by the server.") });
 export const CONTEXT_RESPONSE_ERROR = new RawContextKey<boolean>('aideAgentSessionResponseError', false, { type: 'boolean', description: localize('chatResponseErrored', "True when the chat response resulted in an error.") });
 export const CONTEXT_CHAT_REQUEST_IN_PROGRESS = new RawContextKey<boolean>('aideAgentSessionRequestInProgress', false, { type: 'boolean', description: localize('interactiveSessionRequestInProgress', "True when the current request is still in progress.") });
+export const CONTEXT_CHAT_CAN_REVERT_EXCHANGE = new RawContextKey<boolean>('aideAgentCanRevertExchange', false, { type: 'boolean', description: localize('aideAgentCanRevertExchange', "True when the conversation can be revert until this exchange.") });
+export const CONTEXT_CHAT_HAS_HIDDEN_EXCHANGES = new RawContextKey<boolean>('aideAgentHasHiddenExchanges', false, { type: 'boolean', description: localize('aideAgentHasHiddenExchanges', "True when there are reverted exchanges that are yet to be discarded.") });
 
 export const CONTEXT_RESPONSE = new RawContextKey<boolean>('aideAgentResponse', false, { type: 'boolean', description: localize('chatResponse', "The chat item is a response.") });
 export const CONTEXT_REQUEST = new RawContextKey<boolean>('aideAgentRequest', false, { type: 'boolean', description: localize('chatRequest', "The chat item is a request") });
@@ -28,11 +30,12 @@ export const CONTEXT_CHAT_MODE = new RawContextKey<string>('aideAgentMode', 'Pla
 export const CONTEXT_CHAT_IS_PLAN_VISIBLE = new RawContextKey<boolean>('aideAgentIsPlanVisible', false, { type: 'boolean', description: localize('chatIsPlanVisible', "True when the plan is visible.") });
 export const CONTEXT_CHAT_LAST_ITEM_ID = new RawContextKey<string[]>('aideAgentLastItemId', [], { type: 'string', description: localize('chatLastItemId', "The id of the last chat item.") });
 export const CONTEXT_CHAT_LAST_EXCHANGE_COMPLETE = new RawContextKey<boolean>('aideAgentLastExchangeComplete', false, { type: 'boolean', description: localize('chatLastExchangeComplete', "True when the last exchange is complete.") });
-export const CONTEXT_CHAT_SESSION_WITH_EDITS = new RawContextKey<boolean>('aideAgentSessionWithEdits', false, { type: 'boolean', description: localize('chatSessionWithEdits', "True when the chat session has edits.") });
 export const CONTEXT_CHAT_HAS_FILE_ATTACHMENTS = new RawContextKey<boolean>('aideAgentHasFileAttachments', false, { type: 'boolean', description: localize('chatHasFileAttachments', "True when the chat has file attachments.") });
 
 export const CONTEXT_CHAT_ENABLED = new RawContextKey<boolean>('aideAgentIsEnabled', false, { type: 'boolean', description: localize('chatIsEnabled', "True when chat is enabled because a default chat participant is activated with an implementation.") });
 export const CONTEXT_CHAT_PANEL_PARTICIPANT_REGISTERED = new RawContextKey<boolean>('aideAgentPanelParticipantRegistered', false, { type: 'boolean', description: localize('chatParticipantRegistered', "True when a default chat participant is registered for the panel.") });
+export const CONTEXT_CHAT_CAN_UNDO = new RawContextKey<boolean>('aideAgentEditingCanUndo', false, { type: 'boolean', description: localize('chatEditingCanUndo', "True when it is possible to undo an interaction in the assistant panel.") });
+export const CONTEXT_CHAT_CAN_REDO = new RawContextKey<boolean>('aideAgentEditingCanRedo', false, { type: 'boolean', description: localize('chatEditingCanRedo', "True when it is possible to redo an interaction in the assistant panel.") });
 export const CONTEXT_CHAT_EXTENSION_INVALID = new RawContextKey<boolean>('aideAgentExtensionInvalid', false, { type: 'boolean', description: localize('chatExtensionInvalid', "True when the installed chat extension is invalid and needs to be updated.") });
 export const CONTEXT_CHAT_INPUT_CURSOR_AT_TOP = new RawContextKey<boolean>('aideAgentCursorAtTop', false);
 export const CONTEXT_CHAT_INPUT_HAS_AGENT = new RawContextKey<boolean>('aideAgentInputHasAgent', false);

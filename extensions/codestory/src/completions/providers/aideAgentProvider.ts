@@ -7,14 +7,13 @@ import * as http from 'http';
 import * as net from 'net';
 import * as os from 'os';
 import * as vscode from 'vscode';
-
-import { AnswerSplitOnNewLineAccumulatorStreaming, StreamProcessor } from '../../chatState/convertStreamToMessage';
+import { AnswerSplitOnNewLineAccumulatorStreaming, EditMapValue, StreamProcessor } from '../../chatState/convertStreamToMessage';
 import postHogClient from '../../posthog/client';
 import { applyEdits, applyEditsDirectly, } from '../../server/applyEdits';
 import { createFileIfNotExists } from '../../server/createFile';
 import { RecentEditsRetriever } from '../../server/editedFiles';
 import { handleRequest } from '../../server/requestHandler';
-import { EditedCodeStreamingRequest, SideCarAgentEvent, SidecarApplyEditsRequest, SidecarContextEvent, SidecarUndoPlanStep, ToolInputPartial } from '../../server/types';
+import { EditedCodeStreamingRequest, SideCarAgentEvent, SidecarApplyEditsRequest, SidecarContextEvent, ToolInputPartial } from '../../server/types';
 import { RepoRef, SideCarClient } from '../../sidecar/client';
 import { getUniqueId, getUserId } from '../../utilities/uniqueId';
 import { ProjectContext } from '../../utilities/workspaceContext';
@@ -98,7 +97,7 @@ export class AideAgentSessionProvider implements vscode.AideSessionParticipant {
 	editorUrl: string | undefined;
 	private iterationEdits = new vscode.WorkspaceEdit();
 	private requestHandler: http.Server | null = null;
-	private editsMap = new Map();
+	private editsMap = new Map<string, EditMapValue>();
 	private eventQueue: vscode.AideAgentRequest[] = [];
 	private openResponseStream: vscode.AideAgentResponseStream | undefined;
 	private processingEvents: Map<string, boolean> = new Map();
@@ -156,7 +155,6 @@ export class AideAgentSessionProvider implements vscode.AideSessionParticipant {
 				this.provideEditStreamed.bind(this),
 				this.newExchangeIdForSession.bind(this),
 				recentEditsRetriever.retrieveSidecar.bind(recentEditsRetriever),
-				this.undoToCheckpoint.bind(this),
 			)
 		);
 		this.recentEditsRetriever = recentEditsRetriever;
@@ -174,8 +172,7 @@ export class AideAgentSessionProvider implements vscode.AideSessionParticipant {
 		this.aideAgent = vscode.aideAgent.createChatParticipant('aide', {
 			newSession: this.newSession.bind(this),
 			handleEvent: this.handleEvent.bind(this),
-			// handleExchangeUserAction: this.handleExchangeUserAction.bind(this),
-			// handleSessionUndo: this.handleSessionUndo.bind(this),
+			moveToCheckpoint: this.moveToCheckpoint.bind(this),
 		});
 		this.aideAgent.iconPath = vscode.Uri.joinPath(vscode.extensions.getExtension('codestory-ghost.codestoryai')?.extensionUri ?? vscode.Uri.parse(''), 'assets', 'aide-agent.png');
 		this.aideAgent.requester = {
@@ -197,39 +194,6 @@ export class AideAgentSessionProvider implements vscode.AideSessionParticipant {
 
 	async sendContextRecording(events: SidecarContextEvent[]) {
 		await this.sidecarClient.sendContextRecording(events, this.editorUrl);
-	}
-
-	async undoToCheckpoint(request: SidecarUndoPlanStep): Promise<{
-		success: boolean;
-	}> {
-		const exchangeId = request.exchange_id;
-		const sessionId = request.session_id;
-		const planStep = request.index;
-		const responseStream = this.responseStreamCollection.getResponseStream({
-			sessionId,
-			exchangeId,
-		});
-		if (responseStream === undefined) {
-			return {
-				success: false,
-			};
-		}
-		let label = exchangeId;
-		if (planStep !== null) {
-			label = `${exchangeId}::${planStep}`;
-		}
-
-		// This creates a very special code edit which is handled by the aideAgentCodeEditingService
-		// where we intercept this edit and instead do a global rollback
-		const edit = new vscode.WorkspaceEdit();
-		edit.delete(vscode.Uri.file('/undoCheck'), new vscode.Range(new vscode.Position(0, 0), new vscode.Position(0, 0)), {
-			label,
-			needsConfirmation: false,
-		});
-		responseStream.stream.codeEdit(edit);
-		return {
-			success: true,
-		};
 	}
 
 	async newExchangeIdForSession(sessionId: string): Promise<{
@@ -335,14 +299,16 @@ export class AideAgentSessionProvider implements vscode.AideSessionParticipant {
 		} else if ('End' === editStreamEvent.event) {
 			// drain the lines which might be still present
 			const editsManager = this.editsMap.get(editStreamEvent.edit_request_id);
-			while (true) {
-				const currentLine = editsManager.answerSplitter.getLine();
-				if (currentLine === null) {
-					break;
+			if (editsManager) {
+				while (true) {
+					const currentLine = editsManager.answerSplitter.getLine();
+					if (currentLine === null) {
+						break;
+					}
+					await editsManager.streamProcessor.processLine(currentLine);
 				}
-				await editsManager.streamProcessor.processLine(currentLine);
+				editsManager.streamProcessor.complete();
 			}
-			editsManager.streamProcessor.cleanup();
 
 			await vscode.workspace.save(vscode.Uri.file(editStreamEvent.fs_file_path)); // save files upon stream completion
 			// delete this from our map
@@ -395,11 +361,6 @@ export class AideAgentSessionProvider implements vscode.AideSessionParticipant {
 		// this.sessionId = sessionId;
 	}
 
-	handleSessionUndo(sessionId: string, exchangeId: string): void {
-		// TODO(skcd): Handle this properly that we are doing an undo over here
-		this.sidecarClient.handleSessionUndo(sessionId, exchangeId, this.editorUrl!);
-	}
-
 	/**
 	 * TODO(codestory): We want to get this exchange feedback on each exchange
 	 * either automagically or when the user invokes it
@@ -436,6 +397,10 @@ export class AideAgentSessionProvider implements vscode.AideSessionParticipant {
 			this.processingEvents.set(uniqueId, true);
 			this.processEvent(event);
 		}
+	}
+
+	async moveToCheckpoint(sessionId: string, exchangeId: string): Promise<void> {
+		await this.sidecarClient.moveToCheckpoint(sessionId, exchangeId);
 	}
 
 	// consider putting posthog event here?
