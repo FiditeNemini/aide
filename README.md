@@ -1,3 +1,5 @@
+### This project is no longer maintained. See our announcement [here](https://x.com/aide_dev/status/1891862381074186388). We appreciate all the support we received from the community, and leave this source code here for anyone interested in forking or poking around in future.
+
 <div id="vscodium-logo" align="center">
     <img src="./media/logo.svg" alt="Aide Logo" width="160"/>
     <h1>Aide</h1>
